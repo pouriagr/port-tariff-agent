@@ -91,3 +91,5 @@ task_docs/       original task material, git-ignored
 - Specs: `docs/spec/ingestion.md`, `docs/spec/query.md`, `docs/spec/ground-truth.md`,
   `docs/spec/pdf-notes.md`
 - Data layout: `data/README.md`
+- Remaining work at a glance: run the `/next-steps` skill
+  (`.claude/skills/next-steps/SKILL.md`)
