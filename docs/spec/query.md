@@ -31,10 +31,14 @@ once to submit what it has, with a note in `notes`.
 Knowledge tool. Behind it, in order:
 
 1. **Document selection** (code). Load `documents.json`. Keep rows with `active == true`
-   whose `ports` contain `port` (case-insensitive, trimmed). If `arrival_date` is given,
-   keep rows whose validity contains it; otherwise use today's date. Among the remaining
-   rows the newest `ingested_at` wins. If none remain, return
+   whose `ports` contain `port`, compared on the normalised port key of ADR-018. If
+   `arrival_date` is given, keep rows whose validity contains it; otherwise use today's
+   date. A `null` bound is unbounded on that side, so a row with unknown validity matches
+   every date; a row whose stated range contains the date therefore wins over one that only
+   matches because its validity is unknown. Among the rows that remain the newest
+   `ingested_at` wins. If none remain, return
    `{"error": "No tariff document covers port X on date Y", "known_ports": [...]}`.
+   Paths are derived from `DATA_DIR` and the row's `document_hash`; the row stores none.
 2. **ChargeSelector** (LLM, one call, extraction model). Input: the `charges` array from
    the selected document's `charges.json` (section id, name, payer, applies_when), the
    port and the vessel description. Question: which of these charges apply to this vessel
@@ -47,17 +51,18 @@ Knowledge tool. Behind it, in order:
    Code drops ids that do not exist in the catalog.
 3. **Section texts** (code). For each applicable id, `get_context(id)` from
    `tariff_index.json` (ancestors' text, then the section with its children). Also the
-   `printed_page` of the section.
+   section's `page_citation`, which is its printed page number where the transcription
+   captured one and a PDF page reference otherwise (ADR-015).
 
 **Return value.**
 
 ```json
 {
-  "document": {"hash": "...", "issuer": "...", "title": "...", "currency": "ZAR",
+  "document": {"document_hash": "...", "issuer": "...", "title": "...", "currency": "ZAR",
                "valid_from": "2024-04-01", "valid_to": "2025-03-31"},
   "port": "Durban",
   "applicable": [
-    {"section_id": "3.3", "name": "Pilotage Dues", "printed_page": 13,
+    {"section_id": "3.3", "name": "Pilotage Dues", "page_citation": "13",
      "reason": "Pilotage is compulsory at Durban", "text": "...full context text..."}
   ],
   "not_applicable": [
@@ -94,7 +99,7 @@ loop. Validation errors are returned to the agent, which fixes and resubmits.
     {
       "name": "Pilotage Dues",
       "section_id": "3.3",
-      "printed_page": 13,
+      "page_citation": "13",
       "formula": "2 * (18608.61 + ceil(51300 / 100) * 9.72)",
       "amount": 47189.94,
       "assumptions": ["Two services: one entering, one leaving"]
@@ -132,7 +137,7 @@ loop. Validation errors are returned to the agent, which fixes and resubmits.
   conversation gives evidence for them and say so in `assumptions`.
 - Every number goes through `calculate`. Never do arithmetic in prose.
 - Never invent vessel data. Report gaps in `missing_inputs`.
-- Cite `section_id` and `printed_page` for every charge.
+- Cite `section_id` and `page_citation` for every charge.
 - Finish with `submit_answer`.
 
 The prompt contains no port names, charge names, rates or section numbers. Examples in

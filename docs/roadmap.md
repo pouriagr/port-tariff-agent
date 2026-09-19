@@ -17,20 +17,23 @@ finished and add a short note when something was learned that later phases need.
 
 Spec: `spec/ingestion.md`
 
-- [ ] Settings (`pydantic-settings`): API key, model names, data dir; loads `.env.local`
-- [ ] Gemini client wrapper: structured output, retry with backoff on 429/5xx, bounded concurrency
-- [ ] Document hashing and folder layout under `data/<hash>/`
-- [ ] PageTranscriber: split PDF with pypdf, one call per page, per-page cache, join into `tariff.md`
-- [ ] Index builder: regex over numbered headings, flat list, `tariff_index.json`, helpers
-      `get_node`, `get_with_children`, `get_context`
-- [ ] ChargeClassifier: one call per section, skip near-empty nodes, `charges.json`
-- [ ] DocumentProfiler: front pages to metadata; append row to `documents.json`
-- [ ] CLI `port-tariff ingest <pdf> [--force]`
-- [ ] Unit tests: index builder (fixtures with synthetic Markdown), hash-skip, registry append
-- [ ] Run on `data/raw/Port Tariff.pdf`; eyeball `tariff.md` tables for the sections in
+- [x] Settings (`pydantic-settings`): API key, model names, data dir; loads `.env.local`
+- [x] Gemini client wrapper: structured output, retry with backoff on 429/5xx, bounded concurrency
+- [x] Document hashing and folder layout under `data/<hash>/`
+- [x] PageTranscriber: split PDF with pypdf, one call per page, per-page cache, join into `tariff.md`
+- [x] Index builder: regex over numbered headings, flat list, `tariff_index.json`, helpers
+      `get_node`, `get_with_children`, `get_context`, `page_citation`
+- [x] ChargeClassifier: one call per section, skip only empty containers (ADR-016), `charges.json`
+- [x] DocumentProfiler: front pages to metadata; append row to `documents.json`
+- [x] CLI `port-tariff ingest <pdf> [--force]`
+- [x] Unit tests: index builder (fixtures with synthetic Markdown), hash-skip, registry append,
+      retry policy, concurrency, both LLM steps against a fake client, CLI, sanity checks
+- [x] Run on `data/raw/Port Tariff.pdf`; eyeball `tariff.md` tables for the sections in
       `spec/ground-truth.md`; record transcription issues in `spec/pdf-notes.md`
-- [ ] Decide the default Flash model after comparing 2.5 Flash with the newest Flash on
-      the two-column pages (ADR)
+      (27 pages, 98 sections, 66 charges; all six ground-truth sections reachable with
+      their constants intact)
+- [x] Decide the default models: newest 3.x Flash for extraction, newest Flash-Lite for
+      classification (ADR-017)
 
 ## Phase 2: Query
 

@@ -4,24 +4,31 @@ Turn one tariff PDF into a cached, machine-readable document that the query phas
 use without touching the PDF again. Runs once per document. Nothing here knows anything
 about a specific port or charge.
 
-Related ADRs: 001 to 006, 011.
+Related ADRs: 001 to 006, 011, 015 to 018.
 
 ## Trigger and idempotency
 
 - Entry point: `port-tariff ingest <pdf> [--force]` (and `POST /documents` later).
 - Compute `document_hash = sha256(pdf bytes)`.
 - If `documents.json` already has a row with that hash and `--force` is not set: print the
-  existing row and stop.
+  existing row and stop. The registry row is written only by the last step, so its presence
+  means all four steps finished.
+- With `--force`: ignore every cache for this hash, re-run all four steps and replace the row
+  that carries the same hash. "Rows are never overwritten" governs editions, and a different
+  edition is a different hash, so re-ingesting identical bytes must not append a duplicate.
 - Output folder: `DATA_DIR/<document_hash>/`.
 - Every step writes its output to disk before the next step starts, so a crash resumes
-  from the last completed step. Step outputs carry a `prompt_version` where an LLM was
-  involved; a changed prompt version invalidates that step's cache.
+  from the last completed step. Step outputs carry a `prompt_version` and the sha of the
+  prompt text; either one changing invalidates that step's cache, so a forgotten version
+  bump cannot silently reuse output produced by different instructions.
+- `document_hash` is the field name in every persisted file, registry rows included. Readers
+  also accept the older name `hash`; writers only ever emit `document_hash`.
 
 ## Folder layout
 
 ```
 DATA_DIR/
-  documents.json
+  documents.json            # JSON array, one row per ingested document
   <document_hash>/
     source.pdf                # copy of the ingested file
     pages/
@@ -30,7 +37,13 @@ DATA_DIR/
     tariff.md
     tariff_index.json
     charges.json
+    classification.jsonl      # one row per classified section, the step 3 cache
+    profile.json              # the step 4 response, cached
+    manifest.json             # per step: prompt version, prompt sha, model, timestamps
 ```
+
+No path is ever persisted. Both phases derive every location from `DATA_DIR` and the
+document hash, so the data directory can move and a clone still works.
 
 ## Step 1: PageTranscriber (LLM, one call per PDF page)
 
@@ -76,8 +89,12 @@ last error, and ingestion stops with a message listing the failed pages. Re-runn
 
 1. Walk the file line by line, tracking the current `pdf_page` and `printed_page` from
    the markers.
-2. A line matching `^#{1,6}\s+(\d+(?:\.\d+)*)\s+(.+?)\s*$` starts a new node with
-   `id = group 1`, `title = group 2`.
+2. A Markdown heading whose text carries a section number starts a new node. The number may
+   be introduced by a word naming the division, as in `SECTION 3` or `Chapter 2`, and the
+   title may be absent because the document prints it separately underneath; the node then
+   keeps the words as printed for its title and the real title stays in its text. Depth
+   always comes from the dotted number, never from the number of `#` characters, so a
+   mis-levelled heading cannot corrupt the hierarchy.
 3. All following lines until the next numbered heading are that node's `text` (markers
    stripped). Text before the first numbered heading goes to a synthetic node with
    `id = "front-matter"`, `title = "Front matter"` (definitions and general notes live
@@ -110,9 +127,15 @@ last error, and ingestion stops with a message listing the failed pages. Re-runn
 }
 ```
 
+`printed_page` is `null` whenever the marker said `unknown`, was missing or did not parse as
+an integer. It is never inferred from `pdf_page`, which would encode this book's two-up
+layout (ADR-015). `pdf_page` is always known, because the joiner writes that marker itself.
+
 **Helpers** (pure functions over the loaded index, unit-tested):
 
 - `get_node(id)`
+- `page_citation(id)`: the printed page number when there is one, otherwise a reference to
+  the PDF page. This is what an answer cites.
 - `get_with_children(id)`: the node's text followed by all descendants' text in document
   order, each prefixed with its heading.
 - `get_context(id)`: the texts of the node's ancestors (root first) followed by
@@ -123,9 +146,11 @@ last error, and ingestion stops with a message listing the failed pages. Re-runn
 ## Step 3: ChargeClassifier (LLM, one small call per section)
 
 **Input per call.** The chain of ancestor titles (for example
-`3 MARINE SERVICES > 3.3 PILOTAGE SERVICES`) and the node's own `text`. Nodes whose own
-text is shorter than 40 characters are skipped without a call (pure container headings).
-The front-matter node is classified like any other.
+`3 MARINE SERVICES > 3.3 PILOTAGE SERVICES`) and the node's own `text`. A node with no
+children is always classified, however short its text. A node with children is skipped
+without a call when it carries no content of its own, measured after stripping page
+markers, table rule lines and blank lines (ADR-016). The front-matter node is classified
+like any other.
 
 **Question.** Does this section define a fee, due or charge that someone has to pay? If
 yes, name it, say who pays, and state in one sentence when it applies.
@@ -145,7 +170,15 @@ yes, name it, say who pays, and state in one sentence when it applies.
 - `payer` is one of `vessel`, `cargo_owner`, `other`.
 - When `defines_charge` is false, the other fields are `null` or empty.
 - `ports_mentioned` lists port names that appear in this section's text, used only to
-  build the registry's `ports` list.
+  build the registry's `ports` list. One entry per individual place: a heading or column
+  that groups several places is split into one entry each, never returned as a combined
+  label (ADR-018). Code splits and normalises the values again before they reach the
+  registry, so a model that ignores the instruction still produces a usable list.
+
+Every classified section, positive or negative, is cached as one row in
+`classification.jsonl` keyed by the prompt version, the prompt sha, the model and the sha of
+the section text. Re-transcribing one page therefore re-classifies only the sections that
+page changed. `charges.json` is derived from that file; it is never the cache itself.
 
 **Output.** `charges.json` keeps only positive rows. `section_id` comes from the loop,
 not from the model.
@@ -184,13 +217,15 @@ Concurrency and retry rules are the same as Step 1.
 }
 ```
 
-Unknown values are `null`; the code then falls back to an open validity range and warns.
+Unknown values are stored as `null` and warned about. They are never widened to sentinel
+dates: the registry is an audit record and must not state a validity the document never
+gave. "Open range" is a selection-time meaning, `null` being unbounded on that side.
 
 **Registry row** appended to `documents.json` by code:
 
 ```json
 {
-  "hash": "3f9a...",
+  "document_hash": "3f9a...",
   "source": "Port Tariff.pdf",
   "issuer": "Transnet National Ports Authority",
   "title": "Port Tariffs, Twenty Third Edition",
@@ -205,9 +240,10 @@ Unknown values are `null`; the code then falls back to an open validity range an
 }
 ```
 
-`ports` is the sorted union of `ports_mentioned` across all classified sections,
-normalised by trimming and title-casing. `active` defaults to true and can be flipped by
-a future CLI command to retire a document.
+`ports` is the sorted union of `ports_mentioned` across all classified sections, positive
+and negative alike, normalised per ADR-018: combined labels split, trimmed, whitespace
+collapsed, capitalised per word and de-duplicated. `active` defaults to true and can be
+flipped by a future CLI command to retire a document.
 
 ## Update rule
 

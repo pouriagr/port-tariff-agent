@@ -42,3 +42,56 @@ berthing 3.8, running of vessel lines 3.9); Section 4 port fees on vessels (port
 4.1.1, berth dues 4.1.2, small vessels 4.2); Section 5 licences; Section 6 dry docks;
 Section 7 cargo dues; Section 8 business processes. Definitions and general terms are in
 the front matter and in section 3.1.
+
+## Transcription findings (Phase 1 run, 2026-09-19)
+
+Model: newest 3.x Flash (ADR-017), one call per PDF page, prompt version 1. The run produced
+27 page files, 90 sections and 68 charges. What the eyeball check found:
+
+| Area | Result |
+| --- | --- |
+| Two-up spreads | Correct. Both logical pages are transcribed left then right, each preceded by its own printed-page marker. No interleaving. |
+| Printed page numbers | Every section carries one; none came back `unknown`. |
+| Port-column tables | Intact, including the seven-column tug table and the merged `Port Elizabeth / Ngqura` header cell. |
+| Fallback column | Preserved. Section 3.8 has no Durban column and keeps `Other Ports`, which is where its rates have to be read from. |
+| Banded tonnage rows | Each band's base row and its `Plus per 100 tons` row stay aligned under one header row. The `Plus` label arrives as `Plus<br>Per 100 tons or part thereof`. |
+| `n/a` cells | Preserved verbatim. |
+| Thousands separators | Kept as printed, with a non-breaking-style space: `73 118.07`, not `73118.07`. The agent must strip the space before computing. |
+| Encoding | Clean UTF-8. Em dashes, curly quotes and bullets survive; nothing is mangled. |
+| Ground-truth sections | All six (1.1.1, 2.1.1, 3.3, 3.6, 3.8, 4.1.1) exist in the index, are classified as charges, and contain their expected constants verbatim. |
+
+Two prompt-level issues were found and fixed rather than worked around in code:
+
+- The charge classifier returned any place name it saw, so dry dock names, a country and an
+  adjectival form of it reached the registry's `ports` list. The prompt now asks only for
+  ports of call and explicitly excludes countries, regions, authorities, berths, terminals
+  and facilities inside a port. Prompt version raised to 2, which re-runs that step alone.
+- Three sanity checks fired on shapes that are not faults: a contents page repeating section
+  numbers, a page that continues a section without starting one, and a section holding two
+  tables of different widths. The checks were narrowed; the transcription was left alone.
+
+### Structural findings from the same run
+
+- **Top-level headings carry no title.** The book prints `SECTION 3` on its own line with
+  `MARINE SERVICES` in bold underneath. The first index build therefore produced no
+  top-level nodes at all, and every `3.x` section became a root. The builder now accepts a
+  heading whose number is introduced by a word, so all eight top-level sections exist and
+  the charges hang off them correctly. Builder version raised to 2, which rebuilds the index
+  and reclassifies only what changed, without re-transcribing.
+- **General terms sit in a numbered sibling, not in an ancestor.** Working hours, the
+  out-of-hours surcharge rule and the tonnage definition live in section 3.1, which defines
+  no charge of its own. It is therefore absent from `charges.json`, and because it is a
+  sibling rather than an ancestor of 3.3, 3.6 and 3.8, `get_context` on those sections does
+  not carry it. **This is unresolved and belongs to the query phase**: the agent needs those
+  terms to decide that no out-of-hours surcharge applies. Options for Phase 2, in preference
+  order: hand the ChargeSelector the non-charge sections too, so it can mark a general-terms
+  section as relevant; or have `get_charges` always include the ancestors' other childless
+  sections. Neither needs tariff-specific knowledge.
+- **A long price list stays as body text.** Under 4.3.1 the document prints dotted-leader
+  items numbered `4.3.1.1`, `4.3.1.2` and so on, which the prompt turns into `label: amount`
+  lines rather than headings. They remain inside their parent section, so their rates are
+  still reachable through it, and the parent is classified as a charge. Left as is.
+- **Remaining warnings are expected.** `UNPARSED_HEADING` counts the contents pages and the
+  price-list items above; `EMPTY_SECTION` names three headings the document leaves empty;
+  `SIBLING_NUMBER_GAP` names one number the document skips; `NUMERIC_LEAF_NOT_A_CHARGE`
+  names the general-terms and definition sections, which is correct.

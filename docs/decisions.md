@@ -144,9 +144,8 @@ for little gain here), LangChain and LlamaIndex.
 uses Flash by default and can be switched to a Pro model through
 `GEMINI_MODEL_AGENT`. Model names are never in code.
 
-**Why.** Free-tier friendly and fast. The verified key can call `gemini-2.5-flash`,
-`gemini-2.5-pro` and the newer `gemini-3.x` Flash models, so the exact default is chosen
-in Phase 1 after comparing transcription quality on the two-column pages.
+**Why.** Free-tier friendly and fast. Superseded in part by ADR-017, which names the three
+model roles and settles the defaults.
 
 ## ADR-012: `uv` for packaging and environments
 
@@ -170,3 +169,82 @@ large tariff books without changing the rest of the design.
 are in English.
 
 **Why.** The deliverable is reviewed by an English-speaking team.
+
+## ADR-015: Page citation survives an unknown footer
+
+**Context.** The transcription prompt lets the model emit `<!-- printed-page: unknown -->` when a
+footer is unreadable or absent, but the query phase cites a page for every charge.
+
+**Decision.** A section node stores `printed_page: int | None`, never inferred, plus `pdf_page:
+int`, which is always known because our own joiner writes that marker. `TariffIndex.page_citation`
+returns the printed number when there is one and a PDF page reference otherwise. `get_charges`
+returns all three fields and the answer schema carries `page_citation` as text rather than
+`printed_page` as an integer.
+
+**Why.** Deriving a printed number from the PDF page index would encode the assumption that this
+book prints two logical pages per sheet, which is exactly the document-specific logic the brief
+forbids. A PDF page number is a property of every PDF, so the fallback stays general and a reader
+can always verify the citation by opening the file.
+
+**Rejected.** Inferring the printed number arithmetically (document specific); storing a sentinel
+integer (indistinguishable from a real page); failing ingestion on a missing footer (one unreadable
+footer would block a whole document).
+
+## ADR-016: The classifier skips containers, never leaves
+
+**Context.** `spec/ingestion.md` originally skipped any section whose own text was shorter than 40
+characters, on the assumption that such nodes are pure container headings.
+
+**Decision.** A section with no children is always classified, however short its text. A section
+with children is classified only when it carries content of its own, measured after stripping page
+markers, table rule lines and blank lines.
+
+**Why.** Forty is a number tuned by eye against one document, and a leaf whose rates live in a
+table can easily have less prose than that. The two error directions are not symmetric: a needless
+call costs one cheap request and a negative row, while a wrongly skipped leaf silently removes a
+whole charge from the final answer. "Leaf versus container" is a property of any numbered document,
+so it also generalises where a character count does not.
+
+**Rejected.** Keeping the character threshold; measuring length including descendants' text (a
+container would then always qualify and the saving disappears).
+
+## ADR-017: Three model roles, three environment variables
+
+**Decision.** Ingestion and the agent name three roles, each configured by its own variable and
+never by a literal in code: `GEMINI_MODEL_EXTRACT` for page transcription and document profiling,
+`GEMINI_MODEL_CLASSIFY` for per-section charge classification, and `GEMINI_MODEL_AGENT` for the
+ReAct loop. The defaults documented in `.env.example` are the newest Flash model for extraction and
+the agent, and the newest Flash-Lite model for classification. Supersedes the open question left in
+ADR-011.
+
+**Why.** Classification is one small call per section, so a document of this size costs a few
+hundred requests, an order of magnitude more than every other step combined. Pointing that step at
+a lighter model draws on a separate, larger free-tier quota pool and keeps a full ingestion inside
+a day's limits, while transcription, which is the step that actually determines accuracy, keeps the
+stronger model. A yes/no classification over one short section is exactly the task a lite model
+handles reliably.
+
+**Rejected.** One model for everything (either too slow and quota-hungry, or too weak for
+transcription); batching several sections per classification call (contradicts ADR-003 and
+reintroduces the long-input reliability problem it was written to avoid).
+
+## ADR-018: Port labels are split on write and matched on a normalised key
+
+**Context.** Document selection matches a requested port against the `ports` list in the registry,
+and that list is the union of what the classifier reports per section. Tariff tables routinely name
+several places in one column header.
+
+**Decision.** Two layers, neither of which contains a port name. The classification prompt asks for
+one entry per individual place and forbids combined labels. Code then splits every reported value
+on the separators `/`, `,`, `;`, `&` and the word `and`, trims, collapses whitespace, capitalises
+per word, de-duplicates and sorts. Matching uses a `port_key` function, applied symmetrically to
+the stored value and to the port named in the query, which lowercases, collapses whitespace, strips
+punctuation and drops a leading "port of".
+
+**Why.** A merged label would enter the registry as a single string that matches neither of the
+places it names, making a document unfindable for one of its own ports. Splitting on punctuation
+and one English conjunction is general; a gazetteer of real port names would not be.
+
+**Rejected.** Substring matching at query time (a short port name matches unrelated rows); cleaning
+the list against a list of known ports (document specific); splitting on hyphens or periods (both
+occur inside real place names).
