@@ -9,12 +9,18 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from port_tariff_agent.agent.loop import TariffAgent
+from port_tariff_agent.agent.selector import ChargeSelector, Selection, SelectorResponse
 from port_tariff_agent.cli import app
+from port_tariff_agent.cli import ask as ask_module
 from port_tariff_agent.cli import ingest as ingest_module
-from port_tariff_agent.errors import LlmError
+from port_tariff_agent.errors import ConfigError, LlmError
+from port_tariff_agent.llm.protocol import ModelTurn, ToolCall, UserMessage
 from port_tariff_agent.registry import load_registry
 from port_tariff_agent.settings import Settings
-from tests.fakes import FakeLlm
+from tests.conftest import Document
+from tests.fakes import FakeLlm, FakeToolCallingLlm
+from tests.test_agent import ANSWER
 from tests.test_pipeline import responder
 
 runner = CliRunner()
@@ -124,3 +130,112 @@ def test_help_lists_the_command() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "ingest" in result.output
+
+
+@pytest.fixture
+def asking(
+    monkeypatch: pytest.MonkeyPatch, settings: Settings, document: Document
+) -> FakeToolCallingLlm:
+    """Point `ask` at a scripted conversation over the synthetic document."""
+    client = FakeToolCallingLlm(
+        [
+            ModelTurn(
+                tool_calls=(
+                    ToolCall(
+                        name="get_charges",
+                        args={
+                            "port": document.port,
+                            "vessel_description": "A vessel",
+                            "arrival_date": "2024-06-01",
+                        },
+                    ),
+                )
+            ),
+            ModelTurn(tool_calls=(ToolCall(name="submit_answer", args=ANSWER),)),
+        ]
+    )
+    selector = ChargeSelector(
+        FakeLlm(default=SelectorResponse(applicable=[Selection(section_id="1.2", reason="x")])),
+        model="model-extract",
+    )
+    monkeypatch.setattr(ask_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        ask_module,
+        "build_agent",
+        lambda _settings, max_iterations=None: TariffAgent(
+            client=client,
+            model="model-agent",
+            data_dir=document.data_dir,
+            selector=selector,
+        ),
+    )
+    return client
+
+
+def test_ask_prints_the_answer_the_charges_and_the_total(asking: FakeToolCallingLlm) -> None:
+    result = runner.invoke(app, ["ask", "What does my vessel pay?"])
+
+    assert result.exit_code == 0, result.output
+    assert "Two charges apply." in result.output
+    assert "Arrival Fee" in result.output
+    assert "1.2" in result.output
+    assert "1,282.50" in result.output
+
+
+def test_ask_can_print_the_answer_as_json(asking: FakeToolCallingLlm) -> None:
+    result = runner.invoke(app, ["ask", "What does my vessel pay?", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["charges"][0]["formula"] == "ceil(51300 / 100) * 2.50"
+    assert payload["total"] == 1282.5
+
+
+def test_ask_passes_the_question_through_to_the_agent(asking: FakeToolCallingLlm) -> None:
+    runner.invoke(app, ["ask", "How much for a call on the first of June?"])
+    first = asking.histories[0][0]
+    assert isinstance(first, UserMessage)
+    assert first.text == "How much for a call on the first of June?"
+
+
+def test_ask_reports_a_failure_instead_of_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, settings: Settings, document: Document
+) -> None:
+    def failing(_settings: Settings, max_iterations: int | None = None) -> TariffAgent:
+        return TariffAgent(
+            client=FakeToolCallingLlm([ModelTurn(text="no tools"), ModelTurn(text="still none")]),
+            model="model-agent",
+            data_dir=document.data_dir,
+            selector=ChargeSelector(FakeLlm(default=SelectorResponse()), model="model-extract"),
+            max_iterations=1,
+        )
+
+    monkeypatch.setattr(ask_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(ask_module, "build_agent", failing)
+
+    result = runner.invoke(app, ["ask", "anything"])
+
+    assert result.exit_code == 2
+    assert "did not produce an answer" in result.output
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+
+
+def test_ask_without_configuration_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing() -> Settings:
+        raise ConfigError("GEMINI_API_KEY is not set")
+
+    monkeypatch.setattr(ask_module, "get_settings", missing)
+
+    result = runner.invoke(app, ["ask", "anything"])
+
+    assert result.exit_code == 1
+    assert "GEMINI_API_KEY" in result.output
+
+
+def test_chat_answers_until_the_user_leaves(
+    monkeypatch: pytest.MonkeyPatch, asking: FakeToolCallingLlm
+) -> None:
+    result = runner.invoke(app, ["chat"], input="What does my vessel pay?\nexit\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Two charges apply." in result.output

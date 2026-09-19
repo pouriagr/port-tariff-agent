@@ -43,3 +43,11 @@ class ClassificationError(IngestionError):
 
 class DocumentNotFoundError(PortTariffError):
     """No ingested document matches the request."""
+
+
+class AgentError(PortTariffError):
+    """The agent could not produce a valid answer."""
+
+
+class CalculationError(PortTariffError):
+    """An expression was not something the evaluator is allowed to compute."""

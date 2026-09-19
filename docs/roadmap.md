@@ -39,16 +39,40 @@ Spec: `spec/ingestion.md`
 
 Spec: `spec/query.md`
 
-- [ ] Document selection: port and arrival date against `documents.json`, newest `ingested_at` wins
-- [ ] ChargeSelector: `charges.json` plus vessel description to applicable section ids with reasons
-- [ ] Tool `get_charges`: selection, ChargeSelector, section texts with ancestors and pages
-- [ ] Tool `calculate`: AST-whitelisted evaluator (numbers, + - * / parentheses, ceil, floor,
-      round, min, max)
-- [ ] Tool `submit_answer`: validates `TariffAnswer` and ends the loop
-- [ ] TariffAgent: ReAct loop on `google-genai` function calling, system prompt, max iterations,
-      full history kept per session
-- [ ] CLI `port-tariff ask "<query>"` and `port-tariff chat`
-- [ ] Unit tests: evaluator, document selection, selector output validation
+- [x] Document selection: port and arrival date against `documents.json`, newest `ingested_at` wins
+      (landed in Phase 1 as `registry.select_document`; ADR-006 and ADR-018 are implemented there)
+- [x] ChargeSelector: `charges.json` plus vessel description to applicable section ids with reasons.
+      Also sees the sections that define no charge and returns `context_sections` (ADR-019), which
+      resolves the general-terms gap recorded in `spec/pdf-notes.md`
+- [x] Tool `get_charges`: selection, ChargeSelector, section texts with ancestors and pages
+- [x] Tool `calculate`: AST-whitelisted evaluator (numbers, + - * / parentheses, ceil, floor,
+      round, min, max). Joins a thousands space so a rate copied as printed evaluates
+- [x] Tool `submit_answer`: validates `TariffAnswer` and ends the loop
+- [x] TariffAgent: ReAct loop on `google-genai` function calling, system prompt, max iterations,
+      full history kept per session. Neutral message and tool types keep the SDK in `llm/client.py`
+      (ADR-020); tool arguments are rendered from their Pydantic models (ADR-021)
+- [x] CLI `port-tariff ask "<query>"` and `port-tariff chat`
+- [x] Unit tests: evaluator, schema rendering, selector output validation, `get_charges`, the loop
+      and both commands, all offline against fakes (381 tests)
+
+Live check against the reference query (2026-09-19, not a Phase 3 tick). All six ground-truth
+sections were found and every amount landed inside the 0.5 percent tolerance: 1.1.1, 3.3, 3.6 and
+3.8 exact, 4.1.1 at -0.089 percent and 2.1.1 at +0.088 percent, which are the two deviations
+`spec/ground-truth.md` already attributes to the reference figures. What the first run got wrong was
+fixed in the prompts, not in code:
+
+- It charged the time-based fee on arrival-to-departure although the user had stated the days
+  alongside. The prompt now says a quantity the user states outright beats one the model derives.
+- It included a charge the document places on the cargo owner. The prompt now selects for the party
+  the question is about, using the `payer` the catalog already records.
+
+Two provider facts the live run surfaced, both handled in `llm/client.py`: a thinking model requires
+the opaque signature on earlier tool-call parts to be sent back, and the SDK's automatic function
+calling has to be disabled so the loop dispatches its own tools.
+
+What Phase 3 needs: the reference run is reproducible with `port-tariff ask`; the recorded fixtures
+have to capture a whole conversation (model turns with tool calls, signatures included), not single
+responses, because the loop is what is being replayed.
 
 ## Phase 3: Validation
 

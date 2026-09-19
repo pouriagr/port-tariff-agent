@@ -5,7 +5,7 @@ keeps the whole conversation so the user can ask follow-ups. Nothing in this pha
 contains tariff knowledge; every rate, column choice and formula is read from the
 section texts at run time.
 
-Related ADRs: 006 to 011, 013.
+Related ADRs: 006 to 011, 013, 019 to 021.
 
 ## Flow
 
@@ -40,18 +40,25 @@ Knowledge tool. Behind it, in order:
    `{"error": "No tariff document covers port X on date Y", "known_ports": [...]}`.
    Paths are derived from `DATA_DIR` and the row's `document_hash`; the row stores none.
 2. **ChargeSelector** (LLM, one call, extraction model). Input: the `charges` array from
-   the selected document's `charges.json` (section id, name, payer, applies_when), the
-   port and the vessel description. Question: which of these charges apply to this vessel
-   call? Response schema:
+   the selected document's `charges.json` (section id, name, payer, applies_when), every
+   other numbered section that has text of its own as id, title and a short preview
+   (ADR-019), the port and the vessel description. Two questions: which of these charges
+   apply to this vessel call, and which of the other sections state terms needed to
+   interpret them. Response schema:
 
    ```json
-   {"applicable": [{"section_id": "3.3", "reason": "Pilotage is compulsory at Durban"}]}
+   {
+     "applicable": [{"section_id": "3.3", "reason": "Pilotage is compulsory at Durban"}],
+     "context_sections": [{"section_id": "3.1", "reason": "Defines working hours and the
+                           out-of-hours surcharge that the marine services refer to"}]
+   }
    ```
 
-   Code drops ids that do not exist in the catalog.
-3. **Section texts** (code). For each applicable id, `get_context(id)` from
-   `tariff_index.json` (ancestors' text, then the section with its children). Also the
-   section's `page_citation`, which is its printed page number where the transcription
+   Code drops ids that do not exist in the index, de-duplicates, and removes from
+   `context_sections` anything already in `applicable`.
+3. **Section texts** (code). For each applicable and each context id, `get_context(id)`
+   from `tariff_index.json` (ancestors' text, then the section with its children). Also
+   the section's `page_citation`, which is its printed page number where the transcription
    captured one and a PDF page reference otherwise (ADR-015).
 
 **Return value.**
@@ -65,13 +72,19 @@ Knowledge tool. Behind it, in order:
     {"section_id": "3.3", "name": "Pilotage Dues", "page_citation": "13",
      "reason": "Pilotage is compulsory at Durban", "text": "...full context text..."}
   ],
+  "context": [
+    {"section_id": "3.1", "name": "General", "page_citation": "12",
+     "reason": "Defines working hours and the out-of-hours surcharge",
+     "text": "...full context text..."}
+  ],
   "not_applicable": [
     {"section_id": "4.2", "name": "Port dues for small vessels"}
   ]
 }
 ```
 
-`not_applicable` is the complement computed by code, without reasons.
+`context` holds sections to read but not to charge for (ADR-019). `not_applicable` is the
+complement of `applicable` over the charge catalog, computed by code, without reasons.
 
 ### `calculate(expression: str)`
 
@@ -79,6 +92,10 @@ Deterministic evaluator. Parses the expression with Python's `ast` and accepts o
 numeric literals, `+ - * /`, unary minus, parentheses, and calls to `ceil`, `floor`,
 `round`, `min`, `max`. Anything else raises and the tool returns
 `{"error": "..."}` so the agent can rewrite the expression.
+
+Before parsing, a space between two digits is removed, so a rate copied out of the
+document as printed (`73 118.07`) evaluates instead of failing on a syntax error. This is
+the only normalisation; it never changes a value.
 
 Return value: `{"expression": "...", "result": 47189.94}` with `result` rounded to
 2 decimals (full-precision value also returned as `raw`).
@@ -145,9 +162,12 @@ the prompt, if any, use placeholders.
 
 ## Chat history
 
-- One session = one `contents` list for the SDK, holding user turns, model turns, tool
-  calls and tool results. The CLI `chat` command keeps one session in memory; the API
-  keys sessions by `session_id` in an in-memory store (Phase 4).
+- One session = one list of provider-neutral messages — `UserMessage`, `ModelTurn`
+  (text plus tool calls) and `ToolResult` — which the client translates to the SDK's
+  `Content` objects on each call (ADR-020). Each tool call carries an opaque signature
+  the client round-trips, because a thinking model refuses a history that has lost it.
+  The CLI `chat` command keeps one session in memory; the API keys sessions by
+  `session_id` in an in-memory store (Phase 4).
 - Follow-up messages ("why is towage that high?", "what if she stays 5 days?") reuse the
   history. The agent may call `calculate` again without calling `get_charges` if the
   section texts are already in the history.

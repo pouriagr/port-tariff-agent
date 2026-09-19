@@ -6,6 +6,7 @@ this side answers questions about it.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .errors import PortTariffError
@@ -13,6 +14,18 @@ from .models import SectionNode, TariffIndexFile
 from .storage import read_json
 
 MAX_HEADING_LEVEL = 6
+TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
+MARKER = re.compile(r"^<!--.*-->$")
+
+
+def content_text(text: str) -> str:
+    """The section's own substance, ignoring markers, table rules and blank lines."""
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not TABLE_RULE.match(line) and not MARKER.match(line.strip())
+    ]
+    return " ".join(lines).strip()
 
 
 class SectionNotFoundError(PortTariffError):

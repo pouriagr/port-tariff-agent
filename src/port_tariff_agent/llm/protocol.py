@@ -6,9 +6,9 @@ different provider would touch one module.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -54,3 +54,60 @@ class StructuredGenerator(Protocol):
         files: Sequence[InlineFile] = (),
         max_output_tokens: int | None = None,
     ) -> LlmResult[T]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ToolSpec:
+    """A tool offered to the model: a name, what it does, and its argument schema."""
+
+    name: str
+    description: str
+    parameters: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCall:
+    name: str
+    args: Mapping[str, Any]
+    signature: bytes | None = None
+    """Opaque token a provider may attach to a call and require back with the result."""
+
+
+@dataclass(frozen=True, slots=True)
+class UserMessage:
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class ToolResult:
+    name: str
+    payload: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelTurn:
+    """One reply: prose, tool calls, or both."""
+
+    text: str = ""
+    tool_calls: tuple[ToolCall, ...] = ()
+    signature: bytes | None = None
+    model: str = ""
+    prompt_tokens: int | None = None
+    output_tokens: int | None = None
+
+
+Message = UserMessage | ModelTurn | ToolResult
+
+
+class ToolCallingGenerator(Protocol):
+    """A conversation the model can drive by calling tools."""
+
+    def generate_with_tools(
+        self,
+        *,
+        call_id: str,
+        model: str,
+        system_instruction: str,
+        history: Sequence[Message],
+        tools: Sequence[ToolSpec],
+    ) -> ModelTurn: ...

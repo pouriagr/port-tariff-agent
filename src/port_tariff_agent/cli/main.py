@@ -7,6 +7,7 @@ from typing import Annotated
 
 import typer
 
+from .ask import ask_command, chat_command
 from .ingest import ingest_command
 
 app = typer.Typer(
@@ -27,6 +28,8 @@ def main(
 
 
 app.command("ingest")(ingest_command)
+app.command("ask")(ask_command)
+app.command("chat")(chat_command)
 
 
 if __name__ == "__main__":  # pragma: no cover

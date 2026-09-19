@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -16,13 +15,11 @@ from ..models import Charge, ChargesFile, ClassificationRecord, Payer, SectionNo
 from ..paths import DocumentPaths
 from ..prompts import CHARGE_CLASSIFICATION
 from ..storage import append_jsonl, read_jsonl, sha256_text, write_json
-from ..tariff_index import TariffIndex
+from ..tariff_index import TariffIndex, content_text
 
 log = logging.getLogger(__name__)
 
 STEP = "classify"
-TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
-MARKER = re.compile(r"^<!--.*-->$")
 
 ProgressFn = Callable[[str, int, int], None]
 
@@ -55,16 +52,6 @@ class ClassificationReport:
     charges: list[Charge] = field(default_factory=list)
     ports: list[str] = field(default_factory=list)
     unnamed: list[str] = field(default_factory=list)
-
-
-def content_text(text: str) -> str:
-    """The section's own substance, ignoring markers, table rules and blank lines."""
-    lines = [
-        line.strip()
-        for line in text.splitlines()
-        if line.strip() and not TABLE_RULE.match(line) and not MARKER.match(line.strip())
-    ]
-    return " ".join(lines).strip()
 
 
 def should_classify(node: SectionNode) -> bool:

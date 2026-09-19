@@ -34,5 +34,13 @@ def _load(filename: str, *, version: int) -> Prompt:
 PAGE_TRANSCRIPTION = _load("page_transcription.md", version=1)
 CHARGE_CLASSIFICATION = _load("charge_classification.md", version=2)
 DOCUMENT_PROFILE = _load("document_profile.md", version=1)
+CHARGE_SELECTION = _load("charge_selection.md", version=1)
+TARIFF_AGENT = _load("tariff_agent.md", version=1)
 
-ALL_PROMPTS = (PAGE_TRANSCRIPTION, CHARGE_CLASSIFICATION, DOCUMENT_PROFILE)
+ALL_PROMPTS = (
+    PAGE_TRANSCRIPTION,
+    CHARGE_CLASSIFICATION,
+    DOCUMENT_PROFILE,
+    CHARGE_SELECTION,
+    TARIFF_AGENT,
+)

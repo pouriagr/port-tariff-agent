@@ -82,11 +82,10 @@ Two prompt-level issues were found and fixed rather than worked around in code:
   out-of-hours surcharge rule and the tonnage definition live in section 3.1, which defines
   no charge of its own. It is therefore absent from `charges.json`, and because it is a
   sibling rather than an ancestor of 3.3, 3.6 and 3.8, `get_context` on those sections does
-  not carry it. **This is unresolved and belongs to the query phase**: the agent needs those
-  terms to decide that no out-of-hours surcharge applies. Options for Phase 2, in preference
-  order: hand the ChargeSelector the non-charge sections too, so it can mark a general-terms
-  section as relevant; or have `get_charges` always include the ancestors' other childless
-  sections. Neither needs tariff-specific knowledge.
+  not carry it, although the agent needs those terms to decide that no out-of-hours surcharge
+  applies. **Resolved in Phase 2 by ADR-019**: the ChargeSelector is shown the sections that
+  define no charge as well, and returns the ones whose terms are needed as `context_sections`,
+  which `get_charges` returns beside the charges. No tariff-specific knowledge is involved.
 - **A long price list stays as body text.** Under 4.3.1 the document prints dotted-leader
   items numbered `4.3.1.1`, `4.3.1.2` and so on, which the prompt turns into `label: amount`
   lines rather than headings. They remain inside their parent section, so their rates are

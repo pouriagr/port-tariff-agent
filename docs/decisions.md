@@ -248,3 +248,67 @@ and one English conjunction is general; a gazetteer of real port names would not
 **Rejected.** Substring matching at query time (a short port name matches unrelated rows); cleaning
 the list against a list of known ports (document specific); splitting on hyphens or periods (both
 occur inside real place names).
+
+## ADR-019: The charge selector also sees the sections that define no charge
+
+**Context.** General terms — working hours, the out-of-hours surcharge rule, the tonnage
+definition — live in a numbered section that defines no charge of its own. It is therefore absent
+from `charges.json`, and because it is a sibling rather than an ancestor of the charge sections it
+qualifies, `get_context` on those sections does not carry it. Without those terms the agent cannot
+decide whether a surcharge applies.
+
+**Decision.** The ChargeSelector's input is the charge catalog plus every other numbered section
+that has text of its own, given as id, title and a short preview. Its response gains a second list,
+`context_sections`, beside `applicable`. `get_charges` returns the full text of both, the charges
+to be computed and the context to be read. Code drops ids that are not in the index, de-duplicates,
+and removes from `context_sections` anything already in `applicable`.
+
+**Why.** Which sections carry the general terms is a property of the document, not of the code. The
+model already reads the whole catalog to pick charges; letting it also name the sections it needs
+to interpret them keeps one decision in one place and adds no structural assumption. A section
+whose terms live three levels away, or in a front-matter section, is found the same way.
+
+**Rejected.** Code pulling in every childless non-charge sibling of an applicable section: a
+structural heuristic that over-collects where a document groups charges tightly and under-collects
+where the terms sit somewhere else. Always sending the whole document (blows the context window and
+buries the relevant text).
+
+## ADR-020: A provider-neutral tool-calling protocol
+
+**Context.** The ReAct loop needs multi-turn function calling, which the client wrapper does not
+yet offer; it only does single-shot structured output.
+
+**Decision.** `llm/protocol.py` gains provider-neutral types — `UserMessage`, `ModelTurn`,
+`ToolCall`, `ToolResult`, `ToolSpec` — and a `ToolCallingGenerator` protocol with one method,
+`generate_with_tools`. `GeminiClient` translates those types to and from the SDK's `Content` and
+`FunctionDeclaration`. The agent, its tools and its history never import the provider SDK.
+
+A tool call also carries an opaque `signature`, which the client fills from the provider and hands
+back with the call. A thinking model rejects a conversation whose earlier parts lost it, and the
+agent never looks inside it.
+
+**Why.** `llm/client.py` is the only module that imports `google.genai`, and that boundary is what
+makes every other module testable offline against a fake. A loop built on SDK types would drag the
+provider into the agent package, into the tests and eventually into the API layer. Keeping the loop
+explicit over neutral types is also what ADR-010 buys by refusing a framework.
+
+**Rejected.** Passing `types.Content` through the agent (couples the loop to the provider);
+a second provider abstraction layer with adapters per provider (nothing needs it yet).
+
+## ADR-021: Tool parameters are declared from the Pydantic models, with references inlined
+
+**Context.** `submit_answer` takes a nested object: a list of charges, each with its own fields.
+Pydantic's `model_json_schema()` expresses nesting with `$defs` and `$ref`, and a function
+declaration accepts only a restricted subset of JSON Schema, of which references are the part
+least reliably supported.
+
+**Decision.** A helper, `llm/schema.py::json_schema_for`, renders a Pydantic model to a JSON schema
+with every `$ref` inlined and the keywords the provider rejects removed. Every tool declares its
+parameters through it, from the same model the handler validates against.
+
+**Why.** One definition of each tool's arguments, used both to tell the model what to send and to
+check what it sent. Hand-written schemas beside the models would drift.
+
+**Rejected.** Taking the answer as a JSON string argument and parsing it in code: the model loses
+the schema while composing the answer, which is exactly when it needs it. Flattening `TariffAnswer`
+into scalar arguments (loses the per-charge structure).

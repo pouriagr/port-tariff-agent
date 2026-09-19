@@ -7,9 +7,17 @@ from collections.abc import Callable, Sequence
 
 from pydantic import BaseModel
 
-from port_tariff_agent.llm.protocol import InlineFile, LlmRequest, LlmResult
+from port_tariff_agent.llm.protocol import (
+    InlineFile,
+    LlmRequest,
+    LlmResult,
+    Message,
+    ModelTurn,
+    ToolSpec,
+)
 
 Responder = Callable[[LlmRequest], BaseModel]
+TurnResponder = Callable[[list[Message]], ModelTurn]
 
 
 class FakeLlm:
@@ -71,3 +79,49 @@ class FakeLlm:
         finally:
             with self._lock:
                 self._in_flight -= 1
+
+
+class FakeToolCallingLlm:
+    """A scripted conversation: one ModelTurn per call, in order.
+
+    Each turn may instead be a callable taking the history, for a test that has to react to
+    what the agent sent.
+    """
+
+    def __init__(self, turns: Sequence[ModelTurn | TurnResponder]) -> None:
+        self._turns = list(turns)
+        self.calls: list[dict[str, object]] = []
+
+    @property
+    def call_count(self) -> int:
+        return len(self.calls)
+
+    @property
+    def histories(self) -> list[list[Message]]:
+        return [list(call["history"]) for call in self.calls]  # type: ignore[arg-type]
+
+    def last_history(self) -> list[Message]:
+        return self.histories[-1]
+
+    def generate_with_tools(
+        self,
+        *,
+        call_id: str,
+        model: str,
+        system_instruction: str,
+        history: Sequence[Message],
+        tools: Sequence[ToolSpec],
+    ) -> ModelTurn:
+        self.calls.append(
+            {
+                "call_id": call_id,
+                "model": model,
+                "system_instruction": system_instruction,
+                "history": list(history),
+                "tool_names": [tool.name for tool in tools],
+            }
+        )
+        if not self._turns:
+            raise AssertionError(f"FakeToolCallingLlm ran out of turns at {call_id!r}")
+        turn = self._turns.pop(0)
+        return turn(list(history)) if callable(turn) else turn
