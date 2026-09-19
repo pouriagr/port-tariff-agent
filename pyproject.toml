@@ -1,0 +1,45 @@
+[project]
+name = "port-tariff-agent"
+version = "0.1.0"
+description = "Agentic RAG system that reads a port tariff PDF and computes the port dues payable by a vessel from a natural-language query."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Pouria" }]
+dependencies = [
+    "google-genai>=1.0",
+    "pypdf>=5.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-dotenv>=1.0",
+    "tenacity>=8.3",
+    "typer>=0.12",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.scripts]
+# Entry point is wired up in the development phase (see docs/roadmap.md, phase 1).
+port-tariff = "port_tariff_agent.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "ruff>=0.5",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
