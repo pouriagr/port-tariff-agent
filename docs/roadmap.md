@@ -114,13 +114,53 @@ protocol.
 
 ## Phase 4: API and packaging
 
-- [ ] FastAPI: `POST /documents` (ingest), `POST /ask` (new or existing `session_id`),
-      `GET /health`
-- [ ] In-memory session store keyed by `session_id`
-- [ ] Dockerfile (uv-based), `.dockerignore`
+Spec: `spec/api.md`
+
+- [x] FastAPI: `POST /documents` (ingest), `POST /ask` (new or existing `session_id`),
+      `GET /health`, plus `GET /documents/jobs/{job_id}` and `GET /documents`.
+      `create_app()` owns the stores; `app` at module level is what uvicorn serves
+- [x] In-memory session store keyed by `session_id`: one lock per session, bounded by count
+      and idle time, unknown id is 404 and a concurrent turn is 409 (ADR-028)
+- [x] Ingestion answers 202 with a job id and runs as a background task, because a tariff
+      book is minutes of model calls (ADR-027). One lock serialises writes to the registry
+- [x] One table maps every `PortTariffError` to a status and a stable code, applied by a
+      single handler, so routes hold no try/except (ADR-029)
+- [x] Dockerfile (uv-based), `.dockerignore`. Multi-stage, non-root, the committed
+      query-time artifacts baked in, one worker on `$PORT` (ADR-031)
+- [x] Unit and integration tests: the stores with an injected clock, and every endpoint
+      against the existing fakes, offline (52 new tests, 566 in total)
 - [x] Decide whether to ship the ingested cache for the reference PDF in the repo (ADR).
       Resolved early in Phase 3: the query-time artifacts are committed, the transcription
       cache is not (ADR-022)
+
+Two things had to change outside `api/` before any of it worked:
+
+- `build_agent` moved from `cli/ask.py` to `agent/factory.py` (ADR-026). The API importing
+  the CLI would have inverted the layering; both entry points now compose through the agent
+  layer, and so does the validation suite.
+- `tests/conftest.py::no_network` blocked every `socket.connect`, which made `TestClient`
+  unusable on Windows: an asyncio loop there builds its self-pipe from a loopback socket
+  pair. Linux CI would have stayed green while the whole surface went untested locally.
+  The guard now allows loopback and still blocks name resolution outright (ADR-030).
+
+Also found: `python-multipart` was missing. FastAPI raises when a route with an upload is
+*registered*, not when it is called, so its absence would have broken `import
+port_tariff_agent.api` and the smoke test with it.
+
+Verified against the real image: `docker build`, then `/health` reporting the one ingested
+document and `port-tariff --help` running inside the same container. The image is 1.4 MB of
+data on a slim base; `.dockerignore` keeps the transcription cache out.
+
+Live check over HTTP (2026-09-20). `POST /ask` with the reference query returned the same
+six sections and the same total as the Phase 3 recorded run, 506,682.21 ZAR, in 59 seconds.
+A follow-up on the returned `session_id` answered from the history in 11 seconds without
+calling `get_charges` again, which is the point of keeping the agent alive per session.
+One transcription-level `ReadTimeout` was retried by the client wrapper and never reached
+the caller.
+
+What Phase 5 needs: the Limitations section must state that sessions are in memory, that
+the service runs one worker, and that there is no authentication. `docs/spec/api.md` has
+the wording under "Limits and non-goals".
 
 ## Phase 5: Documentation
 

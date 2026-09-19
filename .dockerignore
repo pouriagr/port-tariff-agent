@@ -1,0 +1,72 @@
+# Docker's matcher is not git's, in two ways that matter here:
+#   1. `*` never matches `/`, so `data/*/*` would leave data/<hash>/pages/page_001.md in
+#      the context. The exclusion has to be `data/**`.
+#   2. The builder does descend into an excluded directory, so re-including a file under
+#      one works here even though the same trick fails in .gitignore.
+# Last matching rule wins.
+
+# VCS, CI and editor state
+.git
+.git/**
+.github
+.github/**
+.claude
+.claude/**
+.idea
+.idea/**
+.vscode
+.vscode/**
+
+# A virtual environment built on the developer's machine must never reach the image
+.venv
+.venv/**
+
+# Not needed to build the wheel or to serve a request
+task_docs
+task_docs/**
+docs
+docs/**
+tests
+tests/**
+CLAUDE.md
+.gitignore
+.gitattributes
+.python-version
+Dockerfile
+.dockerignore
+
+# Secrets and local configuration. Values arrive through `docker run -e` / `--env-file`;
+# nothing env-shaped is ever baked in.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Python and tool caches
+**/__pycache__
+**/__pycache__/**
+**/*.py[cod]
+**/*.egg-info
+**/*.egg-info/**
+.pytest_cache
+.pytest_cache/**
+.ruff_cache
+.ruff_cache/**
+dist
+dist/**
+build
+build/**
+
+# Ingestion output. Same intent as .gitignore: keep the committed query-time artifacts,
+# drop the transcription cache, the joined Markdown, the duplicated source PDF and the
+# classification cache.
+data/**
+!data/README.md
+!data/documents.json
+!data/*/tariff_index.json
+!data/*/charges.json
+!data/*/profile.json
+!data/*/manifest.json
+
+# The reference PDF, so the image can demonstrate a full ingestion with no host files.
+!data/raw/*.pdf

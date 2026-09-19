@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from port_tariff_agent.agent import factory as factory_module
 from port_tariff_agent.agent.loop import TariffAgent
 from port_tariff_agent.agent.selector import ChargeSelector, Selection, SelectorResponse
 from port_tariff_agent.cli import app
@@ -20,7 +21,7 @@ from port_tariff_agent.llm.protocol import ModelTurn, ToolCall, ToolResult, User
 from port_tariff_agent.registry import load_registry
 from port_tariff_agent.settings import Settings
 from tests.conftest import Document
-from tests.fakes import FakeLlm, FakeToolCallingLlm
+from tests.fakes import CombinedFake, FakeLlm, FakeToolCallingLlm
 from tests.test_agent import ANSWER
 from tests.test_pipeline import responder
 
@@ -242,18 +243,6 @@ def test_chat_answers_until_the_user_leaves(
     assert "Two charges apply." in result.output
 
 
-class CombinedFake(FakeLlm, FakeToolCallingLlm):
-    """One object answering both protocols, the way `GeminiClient` does.
-
-    Both bases define `call_count`, so read `requests` (structured) and `calls`
-    (tool-calling) directly rather than relying on which one the MRO picks.
-    """
-
-    def __init__(self, turns: list[ModelTurn], response: SelectorResponse) -> None:
-        FakeLlm.__init__(self, default=response)
-        FakeToolCallingLlm.__init__(self, turns)
-
-
 class TestBuildAgent:
     """The composition root. A client passed in has to reach both model call sites."""
 
@@ -276,7 +265,7 @@ class TestBuildAgent:
             ],
             SelectorResponse(applicable=[Selection(section_id="1.2", reason="x")]),
         )
-        agent = ask_module.build_agent(
+        agent = factory_module.build_agent(
             settings.model_copy(update={"data_dir": document.data_dir}),
             client=client,
             **kwargs,  # type: ignore[arg-type]
@@ -322,7 +311,7 @@ class TestBuildAgent:
             ],
             SelectorResponse(applicable=[Selection(section_id="1.2", reason="x")]),
         )
-        agent = ask_module.build_agent(
+        agent = factory_module.build_agent(
             settings.model_copy(update={"data_dir": document.data_dir}),
             client=client,
             today=date(1999, 12, 31),
@@ -340,9 +329,9 @@ class TestBuildAgent:
     ) -> None:
         built: list[Settings] = []
         monkeypatch.setattr(
-            ask_module, "GeminiClient", lambda config: built.append(config) or object()
+            factory_module, "GeminiClient", lambda config: built.append(config) or object()
         )
 
-        ask_module.build_agent(settings)
+        factory_module.build_agent(settings)
 
         assert built == [settings]

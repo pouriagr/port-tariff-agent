@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from port_tariff_agent.agent.answer import TariffAnswer
-from port_tariff_agent.cli.ask import build_agent
+from port_tariff_agent.agent.factory import build_agent
 from port_tariff_agent.llm.client import GeminiClient
 from port_tariff_agent.models import DocumentRow
 from port_tariff_agent.paths import DocumentPaths

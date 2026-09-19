@@ -37,6 +37,7 @@ class Document:
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
+LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
 ENV_VARS = (
     "GEMINI_API_KEY",
     "GEMINI_MODEL_AGENT",
@@ -68,13 +69,27 @@ def _is_live(request: pytest.FixtureRequest) -> bool:
 
 @pytest.fixture(autouse=True)
 def no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing may leave the machine, but the standard library may talk to itself.
+
+    An asyncio event loop builds its self-pipe from a loopback socket pair on Windows, and
+    the API tests need a loop, so a blanket block on `connect` made them unrunnable there
+    while Linux CI stayed green (ADR-030). Name resolution stays blocked outright, so a
+    real host is unreachable even by address.
+    """
     if _is_live(request):
         return
+
+    real_connect = socket.socket.connect
 
     def blocked(*args: object, **kwargs: object) -> None:
         raise RuntimeError("this test must not use the network")
 
-    monkeypatch.setattr(socket.socket, "connect", blocked)
+    def connect(self: socket.socket, address: object, *args: object) -> object:
+        if isinstance(address, tuple) and address and address[0] in LOOPBACK:
+            return real_connect(self, address, *args)  # type: ignore[arg-type]
+        raise RuntimeError("this test must not use the network")
+
+    monkeypatch.setattr(socket.socket, "connect", connect)
     monkeypatch.setattr(socket, "getaddrinfo", blocked)
 
 

@@ -411,3 +411,131 @@ flag and no generator anyone has to remember to run.
 **Rejected.** Hand-maintained numbers (drift, and a reader cannot tell). A script run out of band
 (forgotten, and then the README is wrong with nothing failing). Committing a JSON report beside
 the README (nobody reads it, and the README still drifts).
+
+## ADR-026: Both entry points compose through `agent/factory.py`
+
+**Context.** `build_agent` was written in `cli/ask.py` because the CLI was the only caller. The
+API needs the same composition root, and `api/` importing from `cli/` inverts the layering.
+
+**Decision.** `build_agent(settings, *, max_iterations, client, today)` moves verbatim to
+`agent/factory.py` and is exported from `agent/__init__.py`. The CLI imports it from there, so
+patching the name on the command module keeps working: the command still resolves it in its own
+module globals.
+
+**Why.** One composition root, owned by the layer that owns the agent, with two callers above it.
+The `client` and `today` arguments were already the seam the validation suite drives; the API and
+its session store now drive the same one.
+
+**Rejected.** `api/` importing `cli/` (a dependency from the HTTP layer to the terminal layer, for
+no reason). A second builder in `api/` (two places to keep in step, and the ground-truth suite
+would exercise only one of them).
+
+## ADR-027: Ingestion over HTTP is a job, not a request
+
+**Context.** `ingest_document` is tens of model calls and minutes of wall clock for a 27-page
+book. No proxy, browser or load balancer will hold that request open.
+
+**Decision.** `POST /documents` stores the upload, mints a job id, returns 202 with a `Location`
+header, and runs the ingestion as a FastAPI background task. `GET /documents/jobs/{job_id}`
+reports `running`, `done` or `failed`, with the step and counters the existing `ProgressFn`
+already emits. A job records its own failure; an exception never escapes the task. A single
+process-wide lock serialises ingests, because `registry.upsert_row` read-modify-writes
+`documents.json` with no file lock.
+
+**Why.** 202 plus a poll is the honest shape for an operation of this length, and the progress
+callback the CLI already renders as a bar becomes the job's step and counters for free.
+`BackgroundTasks` owns no executor lifecycle, and under `TestClient` it runs inline, so the job
+tests are deterministic with no sleeping or polling.
+
+**Rejected.** A synchronous ingest (times out everywhere). A dedicated thread pool or a real
+queue (buys concurrency the registry lock immediately gives back, and costs the test determinism;
+a queue is the right answer once there is more than one process, and Phase 6 can say so).
+Answering 200 inline for a document that is already ingested (two response shapes for one
+request, and deciding the question still means hashing the file and running the staleness check
+that `ingest_document` owns).
+
+## ADR-028: Sessions are in memory, locked one at a time, and bounded
+
+**Context.** A conversation is a `TariffAgent` instance: `ask` appends to `self.history`, and the
+history carries opaque provider signatures that a thinking model demands back unchanged.
+
+**Decision.** The API keys `session_id` to a live agent in an in-process store. Each session has
+its own lock; a second concurrent turn on the same session is refused with 409. The store is
+bounded by count and by idle time, and an unknown or evicted id is 404, never a silent new
+session. Ids come from `secrets.token_urlsafe`.
+
+**Why.** `ToolCall.signature` is opaque bytes, so serialising history means base64 and a schema
+the provider may change; `docs/spec/query.md` already specified an in-memory store for this
+reason. Two turns on one agent would interleave appends and corrupt the history, and queueing
+behind a call that takes tens of seconds would hold a connection open for no benefit. A bound is
+not optional: without one, a long-lived process accumulates whole conversations. The id is a
+capability, since knowing it grants access to that conversation, so it is random rather than a
+counter.
+
+**Rejected.** A stateless agent per request (loses follow-ups and re-fetches every section text).
+Redis or a database (infrastructure for a demo, and the signature problem does not go away).
+Blocking on a busy session. Putting the bounds in `Settings` (that model is the data and provider
+contract, documented in `.env.example`; a test wanting a two-entry store should not have to build
+one).
+
+## ADR-029: One table maps errors to HTTP, one handler applies it
+
+**Context.** `PortTariffError` already models every deliberate failure, and the CLI turns it into
+an exit code. The API needs the same mapping, for status codes.
+
+**Decision.** `api/errors.py` holds an ordered table from exception class to status and a stable
+`code`, and one handler registered on `PortTariffError` applies it, because Starlette looks a
+handler up along the exception's method resolution order. Errors that are purely HTTP concerns
+(unknown session, busy session, bad upload) subclass a local `ApiError` and get their own rows.
+Every response, including the error field inside a job, is the same envelope: an `error` object
+with `code`, `message` and `details`. `TranscriptionError` and `ClassificationError` put their
+failed pages and section ids in `details`.
+
+**Why.** Routes stay free of try/except, a new exception is one row, and a client can branch on a
+stable string instead of parsing prose. Unhandled exceptions that are not `PortTariffError` are
+deliberately left to Starlette: they are bugs, and a test should see the traceback.
+
+**Rejected.** try/except per route (the same mapping written five times, drifting). Raising
+`HTTPException` from domain code (the package would depend on the web framework, and the CLI
+would inherit it). A busy session as a `PortTariffError` (an HTTP concurrency concern has no
+place in the domain hierarchy).
+
+## ADR-030: The offline guard blocks the network, not the loopback
+
+**Context.** `tests/conftest.py::no_network` replaced `socket.socket.connect` outright. A
+`TestClient` needs an asyncio event loop, and on Windows that is a `ProactorEventLoop` whose
+self-pipe is built from `socket.socketpair()`, which connects over loopback. So every API test
+failed on Windows with "this test must not use the network", while Linux CI stayed green, because
+there `socketpair()` is an `AF_UNIX` syscall.
+
+**Decision.** `no_network` inspects the address and allows the loopback host, and everything else
+still raises. `socket.getaddrinfo` stays blocked outright.
+
+**Why.** The guard exists to stop a test reaching the Gemini API, not to stop the standard library
+talking to itself. With name resolution still blocked and every non-loopback address refused,
+nothing can leave the machine, which is the property the suite actually needs.
+
+**Rejected.** Dropping the guard for the API tests (the one suite that builds a real client
+factory is exactly where an accidental live call would hide). Skipping the API tests on Windows
+(a developer running the suite would see green while a whole surface went untested).
+
+## ADR-031: The image bakes the query-time artifacts and runs one worker
+
+**Context.** The container has to answer a query out of the box, and Phase 6 will put it on a free
+host that injects a port through the environment.
+
+**Decision.** A multi-stage uv build installs from the lockfile alone first, then the project with
+`--no-editable`, so the prompts ship as package data. The runtime stage carries the virtual
+environment, a non-root user and the committed query-time artifacts at an absolute `DATA_DIR`.
+The command runs uvicorn with one worker on the injected port. No model name is ever set as an
+image environment variable: all four stay required at run time.
+
+**Why.** `docker run` answers a question with no ingestion and no host files, which is what a
+reviewer does first. One worker is load-bearing, not a default: sessions live in the process and
+the registry has one in-process writer lock, so a second worker would scatter session lookups and
+race the registry file. A model name baked into the image is the hard-coding the project rules
+forbid, moved one file over, and it would silently pin the image to one model generation.
+
+**Rejected.** Seeding the data directory from an entrypoint script (a shell script whose line
+endings can break the image, for something `COPY` already does). Gunicorn with several workers
+(breaks both invariants above). Model names as image defaults.

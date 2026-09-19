@@ -4,9 +4,9 @@ An agentic RAG system that reads a port tariff PDF and, given a natural-language
 description of a vessel call, finds, interprets and computes every port due the vessel
 has to pay. Built for the Andersen Lab "Generative AI Solutions Developer" take-home test.
 
-> Status: ingestion, query and validation are implemented and tested against the
-> reference case below. The API, packaging and deployment steps are still open; see
-> `docs/roadmap.md`.
+> Status: ingestion, query, validation, the HTTP API and the container image are
+> implemented and tested against the reference case below. Deployment to a public URL is
+> the remaining step; see `docs/roadmap.md`.
 
 ## Overview
 
@@ -86,7 +86,68 @@ uv run pytest                              # offline, this is what CI runs
 uv run pytest -k record --live             # re-record the cassettes against the API
 ```
 
-Still to come: `uvicorn port_tariff_agent.api:app` and a Dockerfile (roadmap phase 4).
+## API
+
+```bash
+uv run uvicorn port_tariff_agent.api:app --reload
+```
+
+Interactive documentation is at `http://127.0.0.1:8000/docs`. The full contract is in
+`docs/spec/api.md`.
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness, and how many documents are ingested |
+| `POST` | `/ask` | Ask about a vessel call; omit or pass `session_id` |
+| `POST` | `/documents` | Upload a tariff PDF; returns a job to poll |
+| `GET` | `/documents/jobs/{job_id}` | Progress and result of an ingestion |
+| `GET` | `/documents` | Which ports and validity periods can be priced |
+
+```bash
+curl localhost:8000/health
+
+# Ask. The reply carries the session id, the charges with their sections and formulas,
+# and the total.
+curl -s localhost:8000/ask -H 'content-type: application/json' -d '{
+  "question": "What port charges does the bulk carrier SUDESTADA pay at Durban? Gross tonnage 51,300, LOA 229.2 m, arrived 2024-11-15, 3.39 days alongside, exporting 40,000 t of iron ore."
+}'
+
+# Follow up in the same conversation
+curl -s localhost:8000/ask -H 'content-type: application/json' \
+  -d '{"question": "Why is towage that high?", "session_id": "<from the reply above>"}'
+
+# Ingest another tariff book. Reading one is tens of model calls, so the upload is
+# accepted and the work runs in the background.
+curl -s -X POST localhost:8000/documents -F "file=@data/raw/Port Tariff.pdf"
+curl -s localhost:8000/documents/jobs/<job_id>
+```
+
+### Docker
+
+```bash
+docker build -t port-tariff-agent .
+
+# Serve. The reference document is baked into the image, so this answers straight away.
+docker run --rm -p 8000:8000 --env-file .env.local port-tariff-agent
+
+# The CLI inside the same image
+docker run --rm --env-file .env.local port-tariff-agent port-tariff ask "..."
+
+# Ingesting needs a writable data directory that outlives the container. A named volume is
+# seeded from the image, so it starts out with the reference document already in it.
+docker volume create port-tariff-data
+docker run --rm -p 8000:8000 -v port-tariff-data:/app/data --env-file .env.local \
+  port-tariff-agent
+```
+
+The image runs one uvicorn worker on `$PORT` (default 8000) as a non-root user. One worker
+is deliberate: sessions live in the process and the registry has a single writer lock.
+
+### Limits
+
+Sessions are in memory, so they are lost on restart and do not survive a second process.
+There is no authentication: anyone who can reach the port can spend model calls. An
+ingestion cannot be cancelled, and an answer is not streamed.
 
 ## Accuracy report
 
@@ -167,10 +228,15 @@ Ingesting a different authority's tariff book requires no code changes either; s
 ## Project layout
 
 ```
-src/port_tariff_agent/   ingestion/, agent/, api/, cli/
+src/port_tariff_agent/
+  ingestion/             PDF -> tariff.md -> index -> charge catalog
+  agent/                 the ReAct loop, its tools, and build_agent
+  api/                   FastAPI app, session store, ingest jobs
+  cli/                   ingest, ask, chat
 tests/                   unit tests and the ground-truth integration test
 data/                    raw PDFs and generated ingestion output
 docs/                    roadmap.md, decisions.md, spec/
+Dockerfile               multi-stage uv build; serves the API
 ```
 
 ## Development workflow

@@ -7,8 +7,8 @@ section texts at run time.
 
 Related ADRs: 006 to 011, 013, 019 to 021, 023.
 
-The composition root is `cli/ask.py::build_agent(settings, *, max_iterations, client,
-today)`. `client` and `today` default to the provider and the system clock; both are
+The composition root is `agent/factory.py::build_agent(settings, *, max_iterations, client,
+today)`, shared by the CLI and the API (ADR-026). `client` and `today` default to the provider and the system clock; both are
 injectable because the answer depends on them — the validation suite replays a recorded
 client, and document selection is a function of the arrival date against the day of the
 query. `LlmClient` in `llm/protocol.py` is the two generators in one protocol, which is

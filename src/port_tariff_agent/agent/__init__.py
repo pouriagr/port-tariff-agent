@@ -11,6 +11,7 @@ Tools (see docs/spec/query.md):
 
 from .answer import ChargeLine, NotApplicableLine, TariffAnswer
 from .calculator import evaluate
+from .factory import build_agent
 from .knowledge import Document, get_charges
 from .loop import TariffAgent
 from .selector import ChargeSelector, SelectorResponse
@@ -25,6 +26,7 @@ __all__ = [
     "TariffAgent",
     "TariffAnswer",
     "Toolbox",
+    "build_agent",
     "evaluate",
     "get_charges",
 ]

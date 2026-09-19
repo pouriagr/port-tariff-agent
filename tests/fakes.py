@@ -7,6 +7,7 @@ from collections.abc import Callable, Sequence
 
 from pydantic import BaseModel
 
+from port_tariff_agent.agent.selector import SelectorResponse
 from port_tariff_agent.llm.protocol import (
     InlineFile,
     LlmRequest,
@@ -125,3 +126,15 @@ class FakeToolCallingLlm:
             raise AssertionError(f"FakeToolCallingLlm ran out of turns at {call_id!r}")
         turn = self._turns.pop(0)
         return turn(list(history)) if callable(turn) else turn
+
+
+class CombinedFake(FakeLlm, FakeToolCallingLlm):
+    """One object answering both protocols, the way `GeminiClient` does.
+
+    Both bases define `call_count`, so read `requests` (structured) and `calls`
+    (tool-calling) directly rather than relying on which one the MRO picks.
+    """
+
+    def __init__(self, turns: list[ModelTurn], response: SelectorResponse) -> None:
+        FakeLlm.__init__(self, default=response)
+        FakeToolCallingLlm.__init__(self, turns)
