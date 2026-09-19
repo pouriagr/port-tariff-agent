@@ -237,6 +237,7 @@ def _read_turn(response: types.GenerateContentResponse) -> ModelTurn:
     return ModelTurn(
         text="\n".join(texts).strip(),
         tool_calls=tuple(calls),
+        signature=signature,
         model=response.model_version or "",
         prompt_tokens=getattr(usage, "prompt_token_count", None),
         output_tokens=getattr(usage, "candidates_token_count", None),

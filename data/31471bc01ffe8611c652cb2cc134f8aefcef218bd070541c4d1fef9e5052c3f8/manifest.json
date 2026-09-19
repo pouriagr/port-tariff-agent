@@ -1,0 +1,29 @@
+{
+  "document_hash": "31471bc01ffe8611c652cb2cc134f8aefcef218bd070541c4d1fef9e5052c3f8",
+  "steps": {
+    "transcribe": {
+      "prompt_version": 1,
+      "prompt_sha": "9346f40de5ab",
+      "model": "gemini-3.8-flash",
+      "completed_at": "2026-09-19T21:19:13.551811+03:30"
+    },
+    "classify": {
+      "prompt_version": 2,
+      "prompt_sha": "8ee69f1f3923",
+      "model": "gemini-3.5-flash-lite",
+      "completed_at": "2026-09-19T21:19:16.990313+03:30"
+    },
+    "profile": {
+      "prompt_version": 1,
+      "prompt_sha": "f24f2400d4bd",
+      "model": "gemini-3.8-flash",
+      "completed_at": "2026-09-19T21:19:16.990313+03:30"
+    },
+    "index": {
+      "prompt_version": 2,
+      "prompt_sha": "",
+      "model": "",
+      "completed_at": "2026-09-19T21:19:13.573402+03:30"
+    }
+  }
+}

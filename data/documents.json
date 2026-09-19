@@ -1,0 +1,25 @@
+[
+  {
+    "document_hash": "31471bc01ffe8611c652cb2cc134f8aefcef218bd070541c4d1fef9e5052c3f8",
+    "source": "Port Tariff.pdf",
+    "issuer": "Transnet National Ports Authority",
+    "title": "Port Tariffs Twenty Third Edition",
+    "currency": "ZAR",
+    "valid_from": "2024-04-01",
+    "valid_to": "2025-03-31",
+    "ports": [
+      "Cape Town",
+      "Durban",
+      "East London",
+      "Mossel Bay",
+      "Ngqura",
+      "Port Elizabeth",
+      "Richards Bay",
+      "Saldanha",
+      "Saldanha Bay"
+    ],
+    "page_count": 27,
+    "ingested_at": "2026-09-19T17:49:16.991312Z",
+    "active": true
+  }
+]

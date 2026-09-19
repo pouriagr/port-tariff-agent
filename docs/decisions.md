@@ -312,3 +312,102 @@ check what it sent. Hand-written schemas beside the models would drift.
 **Rejected.** Taking the answer as a JSON string argument and parsing it in code: the model loses
 the schema while composing the answer, which is exactly when it needs it. Flattening `TariffAnswer`
 into scalar arguments (loses the per-charge structure).
+
+## ADR-022: The reference document's query-time artifacts are committed
+
+**Context.** Accuracy is the first evaluation criterion, so the ground-truth test is the most
+important test in the repository. It needs an ingested document, and everything ingestion
+produces was git-ignored, so CI had nothing to run it against.
+
+**Decision.** `data/documents.json` and, under the document's hash folder, `tariff_index.json`,
+`charges.json`, `profile.json` and `manifest.json` are tracked: about 120 KB, and everything the
+query phase reads. `tariff.md`, `pages/`, `classification.jsonl` and the duplicated `source.pdf`
+stay ignored. The ignore rule had to move from `data/*/` to `data/*/*`, because git does not
+descend into an excluded directory and a negation under one never fires.
+
+**Why.** The validation suite runs in CI with no key and no ingestion, and the accuracy report is
+pinned to the exact bytes it was measured against. `manifest.json` carries the provenance of the
+other three: prompt version, prompt sha and model. A reviewer can also clone and run
+`port-tariff ask` without spending a call on a 27-page transcription.
+
+**Rejected.** Re-ingesting in CI (needs a key, costs money, and a fresh transcription is not
+byte-identical, so the expected values would move under the test). A snapshot copied into
+`tests/fixtures/` (duplicates the same data and drifts from what `ingest` actually writes, so the
+test would stop exercising the real artifact). Committing `tariff.md` as well (85 KB that nothing
+reads at query time).
+
+## ADR-023: Validation replays recorded conversations, not recorded responses
+
+**Context.** The ReAct loop is what Phase 3 validates, and it has two model call sites that
+interleave: the loop itself, and the charge selector inside the `get_charges` tool. A thinking
+model also requires the opaque signature on earlier tool-call parts to be sent back.
+
+**Decision.** One cassette per run (`tests/cassettes/*.json`) records only what the model said, in
+one ordered queue serving both call sites, with signatures base64-encoded. Replay recomputes
+everything else — document selection, section texts, every amount — from the committed artifacts
+through the real code. `cli/ask.py::build_agent` gains `client` and `today` keyword arguments so
+the test drives the real composition root, and `llm/protocol.py` gains an `LlmClient` protocol
+that is both generators at once, which is what the agent is composed from.
+
+Staleness is tiered. Fatal, because the tape no longer describes the run: the queue running out
+or being left unplayed, a mismatched kind, `call_id` or response schema, a changed question, or a
+document hash that no longer resolves. A warning, never fatal: a prompt whose sha has moved since
+the recording, and a per-interaction input digest that has changed.
+
+**Why.** Replaying the conversation means the test exercises the loop, the toolbox, the evaluator
+and the index; only the model is stubbed. It is deterministic, because the tool results are a pure
+function of the tape and the committed bytes — which is also why the document hash has to be
+fatal. The warning tier exists because a cassette is evidence of a past run, not a mirror of the
+current prompt: editing a prompt invalidates the claim, not the record, and hard-failing would
+make every wording change in Phase 5 red until free-tier budget is spent on a re-record.
+
+**Rejected.** A dictionary keyed by `call_id` (`select/<port>` repeats when a port is asked about
+twice and `agent/<step>` restarts at zero on a follow-up, and keying loses the interleaving).
+VCR-style HTTP-level cassettes (bind the suite to the SDK's wire format, which is what ADR-020
+exists to keep out). Asserting against a frozen `TariffAnswer` (tests JSON equality and skips
+everything that produces the answer).
+
+## ADR-024: Generality is asserted as rate provenance and column choice, not as expected values
+
+**Context.** The second port has no reference figures, and inventing them from this agent's own
+output would make the test circular.
+
+**Decision.** `tests/provenance.py` asserts where the numbers came from. Every literal with two
+decimals in a formula, minus the numbers the user stated in the question, must appear in the text
+of the cited section; and where that section's table has a column naming this port, the rate must
+come from it, while a table with port columns but none for this port forces the rate to come from
+a column naming no port. "A header that names a port" is decided against the registry row's own
+`ports` list, through `split_combined_label` and `port_key`. A third check asserts the two ports
+did not resolve to identical constants everywhere.
+
+**Why.** It states the rule the document embodies — some ports have their own column, others fall
+under a general one — without naming a port, a charge or a rate, so it keeps meaning on another
+tariff book. Subtracting the question's own numbers is what excludes the vessel's tonnage and days
+alongside without a maintained ignore list, and the two-decimal restriction excludes structural
+numbers such as the 100 of "per 100 tons". Known limitation: a table listing ports down the first
+column instead of across the header yields no port columns and the check says nothing, which is a
+no-op rather than a false failure.
+
+**Rejected.** Hand-derived expected values for the second port (circular, and unverifiable).
+A bare "the two runs differ somewhere" check: it passes a run that read a third port's column,
+which is the failure the fallback columns actually invite. Provenance alone: a rate from the wrong
+port's column is still in the right section, so it passes.
+
+## ADR-025: The README accuracy and generality tables are rendered from the recorded runs
+
+**Context.** The accuracy report is the headline claim of the project, and a hand-maintained table
+drifts from the code silently.
+
+**Decision.** `tests/report.py` renders both tables from the replayed answers, between HTML
+comment markers in `README.md`. A test compares the file's rows against the rendered rows,
+whitespace-insensitively, and puts the replacement text in its own failure message.
+
+**Why.** The published figure is by construction the figure the recorded run produced, and editing
+the table cannot improve it. The caption names the date, both models, the prompt sha and the
+document hash, so the claim is auditable rather than decorative. Putting the replacement in the
+failure message means updating the README is a copy-paste out of a red test, with no `--write`
+flag and no generator anyone has to remember to run.
+
+**Rejected.** Hand-maintained numbers (drift, and a reader cannot tell). A script run out of band
+(forgotten, and then the README is wrong with nothing failing). Committing a JSON report beside
+the README (nobody reads it, and the README still drifts).

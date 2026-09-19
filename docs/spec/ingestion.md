@@ -45,6 +45,13 @@ DATA_DIR/
 No path is ever persisted. Both phases derive every location from `DATA_DIR` and the
 document hash, so the data directory can move and a clone still works.
 
+The reference document is an exception to "everything here is generated": its four
+query-time artifacts — `tariff_index.json`, `charges.json`, `profile.json` and
+`manifest.json` — plus `documents.json` are committed, so the validation suite runs in CI
+without a key (ADR-022). The transcription cache, `tariff.md` and the duplicated
+`source.pdf` stay ignored and are rebuilt by `--force`. Ingestion is unaffected: it writes
+the same files whether or not they are tracked.
+
 ## Step 1: PageTranscriber (LLM, one call per PDF page)
 
 **Input.** A single-page PDF produced by splitting the source with pypdf, sent as an

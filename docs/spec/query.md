@@ -5,7 +5,14 @@ keeps the whole conversation so the user can ask follow-ups. Nothing in this pha
 contains tariff knowledge; every rate, column choice and formula is read from the
 section texts at run time.
 
-Related ADRs: 006 to 011, 013, 019 to 021.
+Related ADRs: 006 to 011, 013, 019 to 021, 023.
+
+The composition root is `cli/ask.py::build_agent(settings, *, max_iterations, client,
+today)`. `client` and `today` default to the provider and the system clock; both are
+injectable because the answer depends on them — the validation suite replays a recorded
+client, and document selection is a function of the arrival date against the day of the
+query. `LlmClient` in `llm/protocol.py` is the two generators in one protocol, which is
+what the agent is composed from.
 
 ## Flow
 

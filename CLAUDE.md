@@ -67,6 +67,10 @@ CI (`.github/workflows/ci.yml`) runs the same three commands on every push.
 - Python 3.12, managed entirely with `uv`.
 - `uv sync` installs; `uv run pytest` runs tests; `uv run ruff check .` lints;
   `uv run ruff format .` formats (`--check` to verify only).
+- The default test run is offline and needs no key. The validation suite replays recorded
+  conversations from `tests/cassettes/`; `uv run pytest -k record --live` re-records them
+  against the API. Do that deliberately, not on every prompt edit: a changed prompt only
+  warns during replay (ADR-023), and a re-record spends free-tier calls.
 - LLM access through the raw `google-genai` SDK. No LangChain, LlamaIndex or LangGraph.
 - CLI with Typer, API with FastAPI, config with pydantic-settings.
 
@@ -78,8 +82,11 @@ src/port_tariff_agent/
   agent/         TariffAgent ReAct loop, tools get_charges / calculate / submit_answer
   api/           FastAPI app
   cli/           Typer app
-tests/           unit tests plus the ground-truth integration test
-data/            raw PDFs and generated ingestion output (see data/README.md)
+tests/           unit tests, plus the validation suite:
+                 cassettes.py (record/replay), provenance.py (where a rate came from),
+                 report.py (the README blocks), test_ground_truth.py, cassettes/*.json
+data/            raw PDFs and ingestion output; the reference document's query-time
+                 artifacts are committed (see data/README.md, ADR-022)
 docs/            roadmap, decisions, specs
 task_docs/       original task material, git-ignored
 ```

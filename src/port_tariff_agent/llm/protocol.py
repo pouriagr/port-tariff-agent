@@ -111,3 +111,12 @@ class ToolCallingGenerator(Protocol):
         history: Sequence[Message],
         tools: Sequence[ToolSpec],
     ) -> ModelTurn: ...
+
+
+class LlmClient(StructuredGenerator, ToolCallingGenerator, Protocol):
+    """Both capabilities in one object, which is how the agent is composed.
+
+    The loop drives the conversation and the charge selector asks its one structured
+    question; they share a client, so anything standing in for the provider has to answer
+    both.
+    """

@@ -70,19 +70,54 @@ Cross-cutting interpretation points the agent has to get right without being tol
 - Durban is a 24-hour port, so no out-of-hours surcharge applies.
 - Tonnage for tariff purposes is gross tonnage per the 1969 Tonnage Convention.
 
-## Test specification (Phase 3)
+## Test specification (Phase 3, implemented)
 
-- Integration test `tests/test_ground_truth.py`: run the agent on the reference query,
-  match returned charges to the table above **by `section_id`**, assert each amount is
-  within 0.5 percent of the expected value, and assert that sections 1.1.1, 2.1.1, 3.3,
-  3.6, 3.8 and 4.1.1 are all present.
-- Tolerance is 0.5 percent because two reference values themselves deviate by about
-  0.09 percent from the document's formulas.
-- Section 3.9 may additionally appear in the output; the test does not fail on extra
-  charges but reports them.
-- The test runs against recorded LLM responses by default (offline); a `--live` marker
-  runs it against the API.
-- Generality check: same vessel at Cape Town. No expected values are available, so the
-  test asserts only that the agent used Cape Town's column where one exists and the
-  fallback column where it does not (checked via the formulas' constants against the
-  section texts), and that no code changed.
+`tests/test_ground_truth.py`. The reference query is built once by `reference_query(port)`,
+so the second port is provably the same question with one word changed. It states the
+vessel's facts and nothing about columns, services, rounding or which sections to read.
+
+**How a run is reproduced.** A cassette (`tests/cassettes/durban_reference.json`) holds
+what the model said, in one ordered queue covering both call sites, with the thought
+signatures. Replay recomputes document selection, section texts and every amount from the
+committed artifacts through the real code, so the loop, the toolbox and the evaluator are
+all exercised; only the model is stubbed (ADR-023). Offline by default, so CI needs no key.
+`uv run pytest -k record --live` re-records, and the recorder asserts the same values the
+replay does, so a bad recording fails at record time.
+
+**Accuracy assertions.**
+
+- Charges are summed per `section_id` before comparison, since one section can be billed
+  as more than one line. Each of the six is its own parametrized case.
+- Each is within 0.5 percent of the expected value. The tolerance exists for the two
+  reference-side errors in 2.1.1 and 4.1.1.
+- A second assertion pins the *other four* to 0.05 percent, by asserting that the set of
+  sections deviating by more than that is exactly `{2.1.1, 4.1.1}`. Without it a real
+  regression could hide inside the tolerance.
+- Extra charges such as 3.9 are allowed and printed, but must resolve in the index and
+  pass the provenance check below. The recorded run priced none.
+- Self-consistency: the total equals the sum of the lines (an amount computed in prose
+  would not), the currency is the registry row's, `missing_inputs` is empty, and every
+  charge's `page_citation` is the one the index gives for that section.
+
+**Generality assertions** (`tests/provenance.py`, ADR-024). Same vessel at Cape Town, no
+code changed. No expected values exist, so nothing asserts an amount:
+
+- *Provenance.* Every two-decimal literal in a formula, minus the numbers stated in the
+  question, appears verbatim in the text of the cited section. Subtracting the question's
+  numbers excludes the tonnage and the days alongside; the two-decimal rule excludes the
+  100 of "per 100 tons", the band floor and the number of services.
+- *Column choice.* Where the cited section's table has a column naming this port, the rate
+  came from it; where the table has port columns but none for this port, the rate came
+  from a column naming no port. A header "names a port" per the registry row's `ports`.
+  This is the check that catches the wrong column of the right section, which provenance
+  alone cannot.
+- *Differentiation.* The two ports did not resolve to identical constants everywhere, and
+  both priced the same set of sections.
+
+Both checks also run against the Durban run. The recorded result: 2.1.1, 3.3, 3.6 and 3.8
+differ between the two ports; 1.1.1 and 4.1.1 are nationwide and identical. Section 3.8 is
+the case the fallback column exists for — Cape Town has its own column there, Durban does
+not.
+
+**Staleness.** Fatal: the cassette's recorded question, or the document hash the port now
+resolves to, differing from the recording. A changed prompt only warns (ADR-023).

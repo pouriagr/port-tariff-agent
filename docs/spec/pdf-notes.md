@@ -46,7 +46,7 @@ the front matter and in section 3.1.
 ## Transcription findings (Phase 1 run, 2026-09-19)
 
 Model: newest 3.x Flash (ADR-017), one call per PDF page, prompt version 1. The run produced
-27 page files, 90 sections and 68 charges. What the eyeball check found:
+27 page files, 98 sections and 66 charges. What the eyeball check found:
 
 | Area | Result |
 | --- | --- |

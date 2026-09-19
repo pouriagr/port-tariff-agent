@@ -78,11 +78,39 @@ responses, because the loop is what is being replayed.
 
 Spec: `spec/ground-truth.md`
 
-- [ ] Integration test: SUDESTADA at Durban, six reference values, tolerance 0.5 percent,
-      matched by section id
-- [ ] Generality run: same vessel at Cape Town, no code changes; sanity-check column choice
-- [ ] Recorded LLM responses (fixtures) so the test suite runs offline without a key
-- [ ] Fill the accuracy report table in `README.md`
+- [x] Ship the reference document's query-time artifacts so the suite has a document in CI
+      (ADR-022). This also resolves the Phase 4 question below
+- [x] Recorded LLM responses: one ordered cassette per run covering both model call sites,
+      signatures included (`tests/cassettes.py`, ADR-023). Replay recomputes tool results
+      from the committed artifacts, so the loop, the toolbox and the evaluator are all
+      exercised; only the model is stubbed
+- [x] Integration test: SUDESTADA at Durban, six reference values, tolerance 0.5 percent,
+      matched by section id. Four reproduce to the cent; a second assertion pins those four
+      to 0.05 percent so a regression cannot hide in the tolerance
+- [x] Generality run: same vessel at Cape Town, no code changes. Asserted as rate provenance
+      and column choice rather than expected values (`tests/provenance.py`, ADR-024)
+- [x] Fill the accuracy report table in `README.md`, rendered from the recorded run and
+      asserted against the file (`tests/report.py`, ADR-025)
+
+Result. All six reference values land inside tolerance: 1.1.1, 3.3, 3.6 and 3.8 exact, 2.1.1
+at +0.088 percent and 4.1.1 at -0.089 percent, the two deviations `spec/ground-truth.md`
+attributes to the reference figures themselves. Durban total 506,682.21 ZAR over 10 model
+calls. Cape Town prices the same six sections for 440,884.93 ZAR, with 2.1.1, 3.3, 3.6 and
+3.8 resolved to its own column; 3.8 is the case that matters, because Durban has no column
+there and falls back to "Other Ports" while Cape Town has one.
+
+What was found along the way:
+
+- `_read_turn` collected the turn-level thought signature and never put it on the `ModelTurn`
+  it returned, so it was silently dropped. Fixed, with `tests/test_llm_translation.py`
+  covering both directions of the SDK translation.
+- The `.gitignore` rule had to become `data/*/*`: git does not descend into an excluded
+  directory, so a negation under `data/*/` never fires.
+
+What Phase 4 needs: `build_agent(settings, *, max_iterations, client, today)` is the
+composition root, and the `client` and `today` arguments are the seam `POST /ask` and its
+session store should use. `LlmClient` in `llm/protocol.py` is both generators in one
+protocol.
 
 ## Phase 4: API and packaging
 
@@ -90,12 +118,19 @@ Spec: `spec/ground-truth.md`
       `GET /health`
 - [ ] In-memory session store keyed by `session_id`
 - [ ] Dockerfile (uv-based), `.dockerignore`
-- [ ] Decide whether to ship the ingested cache for the reference PDF in the repo (ADR)
+- [x] Decide whether to ship the ingested cache for the reference PDF in the repo (ADR).
+      Resolved early in Phase 3: the query-time artifacts are committed, the transcription
+      cache is not (ADR-022)
 
 ## Phase 5: Documentation
 
 - [ ] README: setup, run, architecture, accuracy report, generality, limitations
+      (status line, Run, accuracy and generality landed in Phase 3; Limitations is open)
 - [ ] Prompt texts reviewed for anything tariff-specific (there must be none)
+- [ ] Re-record both cassettes and refresh the README blocks, after the prompt review.
+      A prompt edit only warns during replay (ADR-023), so this is where the claim is made
+      current again, once, at the point where it costs the least:
+      `uv run pytest -k record --live`
 - [ ] Final pass on `decisions.md`
 
 ## Phase 6: Deployment (bonus)

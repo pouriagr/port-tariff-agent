@@ -3,6 +3,7 @@
 from .client import GeminiClient
 from .protocol import (
     InlineFile,
+    LlmClient,
     LlmRequest,
     LlmResult,
     Message,
@@ -19,6 +20,7 @@ from .schema import json_schema_for
 __all__ = [
     "GeminiClient",
     "InlineFile",
+    "LlmClient",
     "LlmRequest",
     "LlmResult",
     "Message",

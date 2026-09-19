@@ -1,0 +1,403 @@
+{
+  "document_hash": "31471bc01ffe8611c652cb2cc134f8aefcef218bd070541c4d1fef9e5052c3f8",
+  "prompt_version": 2,
+  "model": "gemini-3.5-flash-lite",
+  "charges": [
+    {
+      "section_id": "1.1",
+      "name": "Light dues",
+      "payer": "vessel",
+      "applies_when": "Light dues are payable in accordance with the vessel's tonnage definition."
+    },
+    {
+      "section_id": "1.1.1",
+      "name": "LIGHT DUES",
+      "payer": "vessel",
+      "applies_when": "Payable by self-propelled vessels, all other vessels, and coasters entering or operating within South African waters and ports under specific conditions and timeframes."
+    },
+    {
+      "section_id": "1.2",
+      "name": "SAMSA Levy",
+      "payer": "vessel",
+      "applies_when": "Payable as prescribed in the SAMSA Levy Determination Regulations in force, excluding foreign naval or war vessels."
+    },
+    {
+      "section_id": "2.1",
+      "name": "VTS charges",
+      "payer": "vessel",
+      "applies_when": "Payable by vessels based on their gross tonnage for safe navigation, pollution, and conservancy."
+    },
+    {
+      "section_id": "2.1.1",
+      "name": "VTS CHARGES",
+      "payer": "vessel",
+      "applies_when": "Payable per GT per port call by vessels calling all ports under the control of the Authority and vessels performing port related services within port limits and approaches to port limits."
+    },
+    {
+      "section_id": "3.3",
+      "name": "Pilotage services",
+      "payer": "vessel",
+      "applies_when": "Payable for normal entering or leaving the port, unauthorized vessel movements, specific surcharges outside working hours or due to delays/cancellations, and for PLO duties on tanker vessels at Saldanha."
+    },
+    {
+      "section_id": "3.4",
+      "name": "Fees for surveying/examination of small vessels and life saving appliances",
+      "payer": "vessel",
+      "applies_when": "Payable per service when a survey or examination of small vessels or life saving appliances is conducted."
+    },
+    {
+      "section_id": "3.5",
+      "name": "PILOTAGE EXEMPTION CERTIFICATE",
+      "payer": "vessel",
+      "applies_when": "Payable for vessels applying for a pilotage exemption certificate based on their length overall, with exemptions for SAPS and SANDF vessels."
+    },
+    {
+      "section_id": "3.6",
+      "name": "Tugs/Vessel Assistance and/or Attendance",
+      "payer": "vessel",
+      "applies_when": "Payable for tugs/vessels assisting and/or attending vessels within the confines of the port."
+    },
+    {
+      "section_id": "3.7",
+      "name": "Tanker fire watch, fire fighting, standby services, floating cranes, tug/vessel services, launch services",
+      "payer": "vessel",
+      "applies_when": "When vessels require tanker fire watch, fire fighting, standby services, floating crane hire, tug services, or launch services."
+    },
+    {
+      "section_id": "3.8",
+      "name": "Berthing Services",
+      "payer": "vessel",
+      "applies_when": "Payable per service for vessels entering or leaving a port, shifting berth, undergoing engine trials, remooring and crewing, or when berthing gangs stand by or are detained."
+    },
+    {
+      "section_id": "3.9",
+      "name": "Running of vessels' lines",
+      "payer": "vessel",
+      "applies_when": "Payable per service when a launch or mooring boat is used to run vessels' lines from the ship to the bollard, or when standing by, or for delayed arrivals and departures, cancellations of standby duty, and remooring without tug/pilots."
+    },
+    {
+      "section_id": "3.10",
+      "name": "Hire of Marine Equipment/Marine Services",
+      "payer": "vessel",
+      "applies_when": "Marine equipment or marine services are hired or utilized."
+    },
+    {
+      "section_id": "4.1.1",
+      "name": "Port Dues",
+      "payer": "vessel",
+      "applies_when": "Payable by vessels entering the port, taking in bunkers at the designated anchorage, or at offshore moorings or similar facilities."
+    },
+    {
+      "section_id": "4.1.2",
+      "name": "Berth dues",
+      "payer": "vessel",
+      "applies_when": "Payable by any vessel occupying a repair quay or any other berth and not handling cargo, or when occupying berths under specific conditions such as exceeding allowed time limits while shipping ore."
+    },
+    {
+      "section_id": "4.2",
+      "name": "Port Dues for Small Vessels, Hulks and Pleasure Vessels",
+      "payer": "vessel",
+      "applies_when": "Payable when small vessels, hulks, pleasure vessels, or visiting vessels are allowed access, moor, or operate within the port."
+    },
+    {
+      "section_id": "4.3.1",
+      "name": "Fire and Emergency Services Fees",
+      "payer": "vessel",
+      "applies_when": "Payable when fire and emergency services, equipment, or staff are utilized."
+    },
+    {
+      "section_id": "4.3.1.13",
+      "name": "Use of fire extinguishers",
+      "payer": "vessel",
+      "applies_when": "It becomes payable when fire extinguishers are used and need to be recharged."
+    },
+    {
+      "section_id": "4.3.1.15",
+      "name": "Tanker Fire Watch - Tug",
+      "payer": "vessel",
+      "applies_when": "Payable when a tanker fire watch service is provided by a tug for a duration of 12-36 or 12-48 hours."
+    },
+    {
+      "section_id": "4.3.2",
+      "name": "Fire Protection and Hotwork Inspection Services",
+      "payer": "vessel",
+      "applies_when": "Payable when fire protection duties or hotwork fire safety inspection services are provided."
+    },
+    {
+      "section_id": "4.3.3",
+      "name": "Fire Awareness Training",
+      "payer": "other",
+      "applies_when": "Payable when requesting fire awareness training courses, drills, simulations, or risk assessments."
+    },
+    {
+      "section_id": "4.3.4",
+      "name": "Fire Equipment Maintenance",
+      "payer": "vessel",
+      "applies_when": "It becomes payable when fire equipment maintenance and servicing services are requested or performed."
+    },
+    {
+      "section_id": "4.3.5",
+      "name": "Fire Equipment Hire",
+      "payer": "vessel",
+      "applies_when": "Payable when training facilities, fire pumps, ejector pumps, fire hoses, branch pipes and nozzles, fire extinguishers, or fire tenders and drivers are hired."
+    },
+    {
+      "section_id": "4.4.1",
+      "name": "Crew Transportation",
+      "payer": "vessel",
+      "applies_when": "It becomes payable per day when a vehicle is provided by the Authority's security to crew members for vessels at Island View berths 1-8 to transport them from the vessel to the Check Point."
+    },
+    {
+      "section_id": "4.5",
+      "name": "Fees for the supply of fresh water",
+      "payer": "vessel",
+      "applies_when": "Fresh water is supplied upon application."
+    },
+    {
+      "section_id": "4.7",
+      "name": "Removal of refuse",
+      "payer": "vessel",
+      "applies_when": "Fees for the removal of refuse from the port are compulsory where applicable and available on application."
+    },
+    {
+      "section_id": "4.8",
+      "name": "Combating of oil pollution",
+      "payer": "vessel",
+      "applies_when": "Fees are raised for the combating of oil pollution in the port area."
+    },
+    {
+      "section_id": "4.9",
+      "name": "Passenger baggage handling fee",
+      "payer": "vessel",
+      "applies_when": "The Authority is involved in the handling of passenger baggage, other than manifested baggage, for all passengers on embarkation or on disembarkation."
+    },
+    {
+      "section_id": "4.10",
+      "name": "PASSENGERS' LEVY",
+      "payer": "cargo_owner",
+      "applies_when": "Payable for all passengers on embarkation, disembarkation, or as a visiting passenger in transit per call."
+    },
+    {
+      "section_id": "4.11.1",
+      "name": "Amending Fees",
+      "payer": "other",
+      "applies_when": "Amending fees are payable for all changes to marine order post invoicing which arise from customer initiated requests."
+    },
+    {
+      "section_id": "4.11.2",
+      "name": "Split Account Fees",
+      "payer": "other",
+      "applies_when": "The split account fee is levied per party prior to vessel sailing, and twice per party after vessel sailing or when a marine invoice is credited and re-debited after vessel sailing at the client's request."
+    },
+    {
+      "section_id": "5.1",
+      "name": "Licence fees",
+      "payer": "other",
+      "applies_when": "Licence fees are payable in equal installments, on an annual basis, over the period of the licence."
+    },
+    {
+      "section_id": "2.2",
+      "name": "Vessel agent registration fee",
+      "payer": "vessel",
+      "applies_when": "It becomes payable per port for the duration of vessel agent registration."
+    },
+    {
+      "section_id": "2.3",
+      "name": "Motor vehicle access permit fee per financial year",
+      "payer": "other",
+      "applies_when": "A motor vehicle access permit is obtained for a financial year."
+    },
+    {
+      "section_id": "2.4",
+      "name": "Small vessel permit fee / Pleasure vessel permit fee",
+      "payer": "vessel",
+      "applies_when": "It becomes payable when obtaining a port rule permit for small vessels and pleasure vessels, though the fee is currently free."
+    },
+    {
+      "section_id": "2.5",
+      "name": "Permit replacement fee",
+      "payer": "other",
+      "applies_when": "Payable when a permit is replaced."
+    },
+    {
+      "section_id": "5.3",
+      "name": "Hull Cleaning Permit Fee",
+      "payer": "vessel",
+      "applies_when": "It becomes payable per annum for a hull cleaning permit."
+    },
+    {
+      "section_id": "6.2.1",
+      "name": "Booking deposits for drydock, floating dock or syncrolift",
+      "payer": "vessel",
+      "applies_when": "A firm booking has been made for the use of a drydock, floating dock or syncrolift."
+    },
+    {
+      "section_id": "6.2.2",
+      "name": "drydock or floating dock booking deposit",
+      "payer": "vessel",
+      "applies_when": "A firm booking is made for the use of a drydock or floating dock."
+    },
+    {
+      "section_id": "6.2.3",
+      "name": "Slipways deposit",
+      "payer": "vessel",
+      "applies_when": "A firm booking has been made for the use of slipway."
+    },
+    {
+      "section_id": "6.3",
+      "name": "penalty on dry-dock, floating dock and syncrolift dues",
+      "payer": "vessel",
+      "applies_when": "Vessels exceed their allocated scheduled booking dates for the dry-dock, floating dock and syncrolift occupancy period."
+    },
+    {
+      "section_id": "6.4.1",
+      "name": "preparation fees",
+      "payer": "vessel",
+      "applies_when": "The booking of a drydock is cancelled after the preparatory work has begun."
+    },
+    {
+      "section_id": "6.4.2",
+      "name": "Drydock and floating dock preparation fee",
+      "payer": "vessel",
+      "applies_when": "Payable per vessel for the preparation of a drydock."
+    },
+    {
+      "section_id": "6.5.1",
+      "name": "Docking and undocking of vessels",
+      "payer": "vessel",
+      "applies_when": "Fees are payable per service for the docking and undocking of vessels, or when a request for services outside ordinary working hours is cancelled after staff have been brought on duty."
+    },
+    {
+      "section_id": "6.5.2",
+      "name": "Drydock",
+      "payer": "vessel",
+      "applies_when": "Fees are payable per service for the docking and undocking of vessels at the Port of Durban, and apply also when a requested service outside ordinary working hours is cancelled after staff have been brought on duty."
+    },
+    {
+      "section_id": "6.6.1",
+      "name": "Drydock, floating dock and syncrolift dues",
+      "payer": "vessel",
+      "applies_when": "Payable for the use of a repair facility by vessels."
+    },
+    {
+      "section_id": "6.6.2",
+      "name": "Drydock, floating dock and syncrolift dues",
+      "payer": "vessel",
+      "applies_when": "Fees are payable for the use of a repair facility at the Port of Durban based on the gross tonnage of the vessel."
+    },
+    {
+      "section_id": "6.6.3",
+      "name": "Syncrolift Dues",
+      "payer": "vessel",
+      "applies_when": "It becomes payable when a vessel uses the Syncrolift at the Port of Cape Town."
+    },
+    {
+      "section_id": "6.6.4",
+      "name": "Minimum fees",
+      "payer": "vessel",
+      "applies_when": "Minimum fees become payable for the use of drydocks, floating docks, and syncrolifts during the first 24 hour period or part thereof and each subsequent 12 hour period or part thereof."
+    },
+    {
+      "section_id": "6.7",
+      "name": "Slipway preparation costs and Docking and Undocking of vessels at a slipway",
+      "payer": "vessel",
+      "applies_when": "Payable when a slipway booking is cancelled after preparatory work has begun, or per service for the docking and undocking of vessels."
+    },
+    {
+      "section_id": "6.8.1",
+      "name": "Wharf cranes outside ordinary working hours",
+      "payer": "vessel",
+      "applies_when": "One wharf crane is provided outside ordinary working hours."
+    },
+    {
+      "section_id": "6.8.2",
+      "name": "Wharf cranes",
+      "payer": "vessel",
+      "applies_when": "An additional wharf crane is provided outside ordinary working hours."
+    },
+    {
+      "section_id": "7",
+      "name": "Cargo dues",
+      "payer": "cargo_owner",
+      "applies_when": "Cargo dues are levied on all commodities, articles, things or containers (full or empty) handled as imports, exports, transhipments, and coastwise at all ports."
+    },
+    {
+      "section_id": "7.1",
+      "name": "Breakbulk Tariff",
+      "payer": "cargo_owner",
+      "applies_when": "It becomes payable when breakbulk commodities are imported or exported."
+    },
+    {
+      "section_id": "7.2",
+      "name": "Dry Bulk Tariffs",
+      "payer": "cargo_owner",
+      "applies_when": "It becomes payable when dry bulk commodities are imported or exported."
+    },
+    {
+      "section_id": "7.3",
+      "name": "Liquid Bulk",
+      "payer": "cargo_owner",
+      "applies_when": "It becomes payable when liquid bulk commodities are imported or exported."
+    },
+    {
+      "section_id": "7.4",
+      "name": "container fees",
+      "payer": "cargo_owner",
+      "applies_when": "The container is imported or exported through the port."
+    },
+    {
+      "section_id": "7.5",
+      "name": "Coastwise Cargo",
+      "payer": "cargo_owner",
+      "applies_when": "It becomes payable for coastwise cargo per leg inwards or outwards, including breakbulk, bulk, and containerised cargo."
+    },
+    {
+      "section_id": "7.7",
+      "name": "Transhipped Cargo Fees",
+      "payer": "cargo_owner",
+      "applies_when": "Cargo or empty containers are transshipped, landed in error, over carried, supplied as bunker fuel oil direct from tankers, or handled due to container malfunction."
+    },
+    {
+      "section_id": "7.8",
+      "name": "Late order and related fees",
+      "payer": "cargo_owner",
+      "applies_when": "Late order fee is applicable for cancellations and late submission of cargo documentation."
+    },
+    {
+      "section_id": "8.1",
+      "name": "late cargo dues order fees and penalties",
+      "payer": "cargo_owner",
+      "applies_when": "Late cargo dues order fees and penalties apply when a cargo dues order is incorrect, incomplete, or submitted in a pending status due to credit issues."
+    },
+    {
+      "section_id": "8.2",
+      "name": "Cargo dues",
+      "payer": "cargo_owner",
+      "applies_when": "Cargo dues are payable by the importer or exporter of cargo, or alternatively billed to the container operator or vessel agent under specific conditions."
+    },
+    {
+      "section_id": "8.3.1",
+      "name": "Late order fees for late submission of Cargo Dues Orders",
+      "payer": "cargo_owner",
+      "applies_when": "Cargo Dues Orders are submitted to the Authority after the stipulated timeframes."
+    },
+    {
+      "section_id": "8.3.2",
+      "name": "Late order fee",
+      "payer": "cargo_owner",
+      "applies_when": "It becomes payable when cargo dues orders are submitted late or when a non-submission is discovered by the Authority."
+    },
+    {
+      "section_id": "8.3.3",
+      "name": "Late order fee for late and incomplete or non-submission of manifests/outturns",
+      "payer": "cargo_owner",
+      "applies_when": "It becomes payable when manifests or outturn reports are submitted late, incomplete, or not at all."
+    },
+    {
+      "section_id": "8.4",
+      "name": "amending fee",
+      "payer": "cargo_owner",
+      "applies_when": "An amending fee is charged per order for amendments made after seven (7) days."
+    }
+  ]
+}

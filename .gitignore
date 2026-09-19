@@ -13,10 +13,17 @@ build/
 .pytest_cache/
 .ruff_cache/
 
-# Ingestion output. Regenerated from data/raw with `port-tariff ingest`.
-data/*/
-!data/raw/
-data/documents.json
+# Ingestion output, regenerated from data/raw with `port-tariff ingest`. The query-time
+# artifacts are committed so the validation suite runs in CI without a key (ADR-022); the
+# transcription cache, the joined Markdown and the duplicated PDF stay out.
+# The exclusion is on the contents, not the folder: git does not descend into an excluded
+# directory, so `data/*/` would make every negation below a no-op.
+data/*/*
+!data/raw/*
+!data/*/tariff_index.json
+!data/*/charges.json
+!data/*/manifest.json
+!data/*/profile.json
 
 # Task material not intended for publication
 task_docs/
