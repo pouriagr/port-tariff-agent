@@ -19,10 +19,10 @@ data/
     manifest.json           # tracked: per step, prompt version, prompt sha, model, times
 ```
 
-## Why four of these are committed (ADR-022)
+## Which files are committed (ADR-022)
 
-`tariff_index.json`, `charges.json`, `profile.json` and `manifest.json` are everything
-the query phase reads, about 120 KB. Committing them lets the validation suite run in CI
+`documents.json`, `tariff_index.json`, `charges.json`, `profile.json` and `manifest.json`
+are everything the query phase reads, about 120 KB. Committing them lets the validation suite run in CI
 with no API key and no PDF ingestion, and pins the exact bytes the accuracy report was
 measured against. `manifest.json` carries its own provenance: which prompt version, which
 prompt sha and which model produced the other three.

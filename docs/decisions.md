@@ -539,3 +539,58 @@ forbid, moved one file over, and it would silently pin the image to one model ge
 **Rejected.** Seeding the data directory from an entrypoint script (a shell script whose line
 endings can break the image, for something `COPY` already does). Gunicorn with several workers
 (breaks both invariants above). Model names as image defaults.
+
+## ADR-032: A prompt may state how to read a tariff document, never what this one says
+
+**Context.** Phase 5 reviewed every prompt and every model-facing string for anything specific to
+the reference document. A grep over `src/` for port names, charge names, rates, section numbers
+and the vessel's name returns nothing. But five rules in `tariff_agent.md` were written after
+watching this document be read wrongly, and a reviewer is entitled to ask whether the tariff has
+been smuggled into the instructions in general clothing.
+
+**Decision.** The prompts stay as they are, and the line they respect is stated here. A prompt may
+state a rule for reading a tariff document: that a table's column for a port not named
+individually is the fallback, that a banded rate applies its increment only above the band's lower
+bound, that "per N units or part thereof" rounds up, that a service taken inbound and again
+outbound is two services, that a quantity the user states outright beats one derived from other
+data. It may not state a value, a name, a section, an outcome, or an example that only this
+document supplies. Every such rule is conditioned on the section text a tool returned, is
+overridable by what that text actually says, and is declared in `assumptions` when it moves a
+number.
+
+**Why.** The second evaluation criterion asks that the agent find and interpret the rules in the
+document; it does not ask the agent to arrive unable to read a table. Each of the five is a rule a
+competent reader applies to a tariff book never seen before, and none of them can produce a figure
+on its own: the rate still has to come from a section the tool returned. The test to apply to a
+new rule is whether it would help on a different authority's book. These five would.
+
+**Rejected.** Deleting the five to be safe (the agent then picks the wrong column, halves a service
+taken both ways, and charges a duration it derived rather than the one it was given; the accuracy
+claim collapses and nothing generalises better for it). Moving them into Python (tariff logic in
+code, forbidden outright). Making them concrete with examples from this book (the exact
+hard-coding under review). Re-recording the cassettes to prove the prompts unchanged (the tapes
+already stamp the prompt shas, and they match).
+
+## ADR-033: The README blocks are compared whole, not just their table rows
+
+**Context.** ADR-025's comparison kept only lines beginning with `|`. The provenance caption and
+the trailing sentence of each block were rendered into `README.md` and then asserted by nothing.
+The caption is where the recording date, both model names, the agent prompt's version and sha, the
+document hash, the model-call count and the token totals are published, and every re-record moves
+at least three of them.
+
+**Decision.** `normalise` replaces `rows_of` and compares every line of a block: a table row as a
+tuple of trimmed cells, anything else as a paragraph with its whitespace collapsed. This refines
+ADR-025; the rendering, the markers and the replacement-in-the-failure-message are unchanged.
+
+**Why.** The caption is the audit trail the table rests on, and every field in it is a pure
+function of the committed cassette, so it is exactly as assertable as the figures and needs no
+network and no clock. A block now goes stale only when a tape changes, which is the moment the
+README has to change anyway. Collapsing whitespace across a paragraph keeps re-wrapping a
+160-character caption by hand from failing the comparison for a cosmetic reason.
+
+**Rejected.** Comparing only the fields thought stable, such as the models and the shas (the date
+and the counts are precisely the fields that go stale, and parsing the caption to skip them adds a
+regex that can itself drift). Rendering a caption without the volatile fields (destroys the audit
+trail to protect a test). A freshness rule on the recording date (a cassette is evidence of a past
+run; its age is not a defect, and CI would go red on the calendar).

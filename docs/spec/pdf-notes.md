@@ -1,7 +1,7 @@
 # Spec: Notes on the reference PDF
 
 Facts about `data/raw/Port Tariff.pdf` that shaped the ingestion design. Update this
-file when transcription problems are found in Phase 1.
+file when a transcription problem is found.
 
 ## Physical structure
 

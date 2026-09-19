@@ -119,5 +119,15 @@ differ between the two ports; 1.1.1 and 4.1.1 are nationwide and identical. Sect
 the case the fallback column exists for — Cape Town has its own column there, Durban does
 not.
 
+**The README blocks** (`tests/report.py`, ADR-025 and ADR-033). The accuracy and generality
+tables between the markers in `README.md` are rendered from the recorded runs and compared
+against the file. Each block is compared whole: the table rows, the trailing sentence and
+the provenance caption that names the recording date, both models, the agent prompt's
+version and sha, the document hash, the model-call count and the token totals. Every one
+of those comes from the cassette, so the comparison is offline and deterministic.
+Whitespace inside a row, blank lines and the wrapping of a paragraph are ignored; the
+content is not. There is no writer: a stale block fails with its replacement text in the
+failure message.
+
 **Staleness.** Fatal: the cassette's recorded question, or the document hash the port now
 resolves to, differing from the recording. A changed prompt only warns (ADR-023).

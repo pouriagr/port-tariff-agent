@@ -41,18 +41,39 @@ def extract_block(markdown: str, start: str, end: str) -> str:
     return markdown[head:tail].strip()
 
 
-def rows_of(block: str) -> list[tuple[str, ...]]:
-    """Table rows as tuples of trimmed cells, so spacing cannot fail the comparison."""
-    rows = []
+def normalise(block: str) -> list[tuple[str, ...] | str]:
+    """A block as rows and paragraphs, so only its content can fail the comparison.
+
+    A table row becomes a tuple of trimmed cells; everything else becomes a paragraph with
+    its whitespace collapsed. The prose is compared too, because the provenance caption is
+    the audit trail the table rests on and every field in it comes from the cassette
+    (ADR-033). Collapsing whitespace across a paragraph keeps re-wrapping a long caption
+    by hand from failing the comparison.
+    """
+    parts: list[tuple[str, ...] | str] = []
+    paragraph: list[str] = []
+
+    def flush() -> None:
+        if paragraph:
+            parts.append(" ".join(" ".join(paragraph).split()))
+            paragraph.clear()
+
     for line in block.splitlines():
         stripped = line.strip()
-        if not stripped.startswith("|"):
+        if not stripped:
+            flush()
             continue
+        if not stripped.startswith("|"):
+            paragraph.append(stripped)
+            continue
+        flush()
         cells = tuple(cell.strip() for cell in stripped.strip("|").split("|"))
         if all(re.fullmatch(r":?-{2,}:?", cell) for cell in cells):
             continue  # the alignment row carries no information
-        rows.append(cells)
-    return rows
+        parts.append(cells)
+
+    flush()
+    return parts
 
 
 def _money(value: float) -> str:

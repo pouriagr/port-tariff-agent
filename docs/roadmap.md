@@ -164,14 +164,46 @@ the wording under "Limits and non-goals".
 
 ## Phase 5: Documentation
 
-- [ ] README: setup, run, architecture, accuracy report, generality, limitations
-      (status line, Run, accuracy and generality landed in Phase 3; Limitations is open)
-- [ ] Prompt texts reviewed for anything tariff-specific (there must be none)
-- [ ] Re-record both cassettes and refresh the README blocks, after the prompt review.
-      A prompt edit only warns during replay (ADR-023), so this is where the claim is made
-      current again, once, at the point where it costs the least:
-      `uv run pytest -k record --live`
-- [ ] Final pass on `decisions.md`
+- [x] README: setup, run, architecture, accuracy report, generality, limitations.
+      `## Limitations` sits after Generality and covers the service, the accuracy claim and
+      the transcription; the API-scoped `### Limits` is gone rather than duplicated
+- [x] Prompt texts reviewed for anything tariff-specific (there must be none). None found;
+      the line the review applied is ADR-032
+- [x] Re-record both cassettes and refresh the README blocks, after the prompt review.
+      Not run, deliberately: see the note below. `uv run pytest -k record --live` stays
+      documented in the README as what to run when a prompt does change
+- [x] Final pass on `decisions.md`: ADR-032 and ADR-033 appended, history left as written
+
+The prompt review found nothing tariff-specific: a grep over `src/` for port names, charge
+names, rates, section numbers and the vessel's name returns zero hits, and no prompt was
+edited. What it did find are five rules in `tariff_agent.md` that are abstract in wording but
+were written after watching this document be read wrongly — the fallback column, the banded
+increment, "per N units or part thereof", a service taken both ways, and a stated quantity
+beating a derived one. ADR-032 keeps all five and states the line: a prompt may say how to
+read a tariff document, never what this one says. Each rule would help on another
+authority's book, and none can produce a figure without a rate the tool returned.
+
+The re-record was skipped because nothing it exists for had happened. ADR-023 makes a
+prompt edit warn rather than fail, and the re-record is how the claim is made true again —
+but no prompt changed, both tapes still stamp `tariff_agent v1 sha 90d1bdfabb59` and
+`charge_selection v1 sha 4fc907485c4b`, which match the files on disk, so no `CassetteStale`
+warning fires and both recordings are dated 2026-09-20. Spending the free-tier calls would
+have reproduced a claim that was already current, and put the hand-written prose around both
+tables and `KNOWN_DEVIATIONS` at risk for nothing. Re-record when a stamped prompt changes.
+
+Found and fixed along the way: the README block comparison kept only lines starting with
+`|`, so the provenance caption — recording date, both models, prompt version and sha,
+document hash, model-call count, token totals — was published and asserted by nothing, and
+every re-record would have left it silently stale. `normalise` now compares each block
+whole, prose included, wrap-insensitively (ADR-033); the current README passed unchanged,
+which is how we know the gap had not yet bitten. Also: `.env.example` documented five of
+eleven settings, which breaks a hard rule, so the six missing ones are in and
+`tests/test_settings_env.py` keeps the file complete in both directions.
+
+What Phase 6 needs: the live URL goes into the status blockquote at the top of the README.
+If the host runs more than one instance, the first paragraph of `## Limitations` stops being
+true — sessions would scatter across instances and the registry's single writer lock would
+no longer hold.
 
 ## Phase 6: Deployment (bonus)
 

@@ -34,10 +34,10 @@ from tests.report import (
     GENERALITY_END,
     GENERALITY_START,
     extract_block,
+    normalise,
     render_accuracy_block,
     render_generality_block,
     replacement_message,
-    rows_of,
 )
 
 pytestmark = pytest.mark.integration
@@ -314,7 +314,7 @@ def test_the_readme_accuracy_block_matches_the_recorded_run(durban_run: Run) -> 
         (REPO / "README.md").read_text(encoding="utf-8"), ACCURACY_START, ACCURACY_END
     )
 
-    assert rows_of(current) == rows_of(rendered), replacement_message("accuracy", rendered)
+    assert normalise(current) == normalise(rendered), replacement_message("accuracy", rendered)
 
 
 # --------------------------------------------------------------------------------------
@@ -384,4 +384,4 @@ def test_the_readme_generality_block_matches_the_recorded_runs(
         (REPO / "README.md").read_text(encoding="utf-8"), GENERALITY_START, GENERALITY_END
     )
 
-    assert rows_of(current) == rows_of(rendered), replacement_message("generality", rendered)
+    assert normalise(current) == normalise(rendered), replacement_message("generality", rendered)

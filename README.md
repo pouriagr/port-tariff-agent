@@ -93,7 +93,8 @@ uv run uvicorn port_tariff_agent.api:app --reload
 ```
 
 Interactive documentation is at `http://127.0.0.1:8000/docs`. The full contract is in
-`docs/spec/api.md`.
+`docs/spec/api.md`, and what the service deliberately does not do is under
+[Limitations](#limitations).
 
 | Method | Path | What it does |
 | --- | --- | --- |
@@ -142,12 +143,6 @@ docker run --rm -p 8000:8000 -v port-tariff-data:/app/data --env-file .env.local
 
 The image runs one uvicorn worker on `$PORT` (default 8000) as a non-root user. One worker
 is deliberate: sessions live in the process and the registry has a single writer lock.
-
-### Limits
-
-Sessions are in memory, so they are lost on restart and do not survive a second process.
-There is no authentication: anyone who can reach the port can spend model calls. An
-ingestion cannot be cancelled, and an answer is not streamed.
 
 ## Accuracy report
 
@@ -224,6 +219,32 @@ charge name or a rate:
 
 Ingesting a different authority's tariff book requires no code changes either; see
 `docs/spec/ingestion.md`.
+
+## Limitations
+
+**The service.** Sessions live in the process, so they are lost on restart and are not
+shared between processes. The single uvicorn worker is load-bearing rather than a default:
+the session store is in memory and the document registry has one in-process writer lock
+(ADR-031). There is no authentication, so anyone who can reach the port can spend model
+calls. An ingestion cannot be cancelled, an upload cannot be resumed, an answer is not
+streamed, and progress is polled rather than pushed. Concurrency on `/ask` is bounded by
+the framework's threadpool, and each turn holds one thread for its duration.
+
+**The accuracy claim.** The table above is one recorded conversation replayed. It pins what
+the agent did against those exact document bytes; it is not a distribution over runs, and
+the model is not deterministic, so a fresh run can land elsewhere inside the 0.5 percent
+tolerance. Two of the six reference figures are themselves inconsistent with the document,
+and the report reports the deviation rather than absorbing it. Reading section 3.8 rather
+than 3.9 for the berthing charge is a judgement the document supports; the working is in
+`docs/spec/ground-truth.md`.
+
+**Reading the document.** Transcription is per-page model output, and a misread rate
+becomes a wrong answer with nothing downstream to catch it: provenance proves a number came
+from the section it cites, not that the section was transcribed faithfully. The column
+check is a no-op on a table that lists ports down the first column instead of across the
+header (ADR-024). Retrieval is by section id with no embedding layer (ADR-013), which is
+enough for a book of this size and would not be for a much larger one. A full ingestion is
+a few hundred model calls, so it is done once and cached.
 
 ## Project layout
 
