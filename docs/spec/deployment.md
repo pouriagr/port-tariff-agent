@@ -24,7 +24,7 @@ One service, at the repository root, synced by Render from `main`:
 | `plan` | `free` | One instance, which ADR-031 requires anyway |
 | `autoDeploy` | `false` | A push must not deploy before the suite has passed; CI fires the hook |
 | `healthCheckPath` | `/health` | Never calls a model, so Render's probes cost nothing |
-| `dockerCommand` | the image's CMD, preceded by `export APP_REVISION="$RENDER_GIT_COMMIT"` | The host-specific variable name stays in the host's file (ADR-035) |
+| `dockerCommand` | `/bin/sh -c`, then `export APP_REVISION=$RENDER_GIT_COMMIT;` and the image's own uvicorn command, with no quote characters | The host-specific variable name stays in the host's file (ADR-035). Render passes the text after `-c` to the shell verbatim, quotes included, so a quoted script is one word and exits 127 |
 | `envVars` | `GEMINI_API_KEY` with `sync: false`; the three `GEMINI_MODEL_*` with values | The key is set once in the dashboard and never in the repository; model names are environment values, equal to `.env.example` |
 
 No `numInstances`: the free plan is one instance and the service must stay one.

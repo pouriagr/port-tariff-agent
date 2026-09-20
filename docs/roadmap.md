@@ -219,3 +219,8 @@ Spec: `spec/deployment.md`
       the `LIVE_URL` variable exists, so it can land before the service does.
       `tests/test_deployment_config.py` asserts the blueprint and the job against the spec
 - [ ] Deploy, add the live URL to the README
+
+Found on the first Render build: `dockerCommand` is not parsed like a shell line. Render hands
+everything after `-c` to the shell verbatim, quote characters included, so `sh -c '...'` made
+the whole script one word and the container exited 127. The command now carries no quotes,
+and a test keeps it that way.

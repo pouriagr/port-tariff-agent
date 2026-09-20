@@ -13,8 +13,10 @@ services:
     # Never calls a model, so Render's probes cost nothing.
     healthCheckPath: /health
     # The image's own CMD, preceded by the revision Render knows and the app reports (ADR-035).
-    # The host-specific variable name lives here, not in Python.
-    dockerCommand: sh -c 'export APP_REVISION="$RENDER_GIT_COMMIT"; exec uvicorn port_tariff_agent.api:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1 --proxy-headers'
+    # The host-specific variable name lives here, not in Python. Render hands everything after
+    # `-c` to the shell verbatim as one argument, quote characters included, so the script
+    # carries none: a quoted script is one word to sh and exits 127.
+    dockerCommand: /bin/sh -c export APP_REVISION=$RENDER_GIT_COMMIT; exec uvicorn port_tariff_agent.api:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --proxy-headers
     envVars:
       # Set once in the dashboard, never in the repository.
       - key: GEMINI_API_KEY

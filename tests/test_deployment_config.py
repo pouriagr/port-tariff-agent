@@ -66,7 +66,14 @@ class TestBlueprint:
         assert service["healthCheckPath"] == "/health"
 
     def test_the_command_hands_the_revision_to_the_app(self, service: dict[str, Any]) -> None:
-        assert 'APP_REVISION="$RENDER_GIT_COMMIT"' in service["dockerCommand"]
+        assert "APP_REVISION=$RENDER_GIT_COMMIT" in service["dockerCommand"]
+
+    def test_the_command_carries_no_quotes(self, service: dict[str, Any]) -> None:
+        """Render passes the text after `-c` verbatim; a quote makes the script one word."""
+        command = service["dockerCommand"]
+
+        assert command.startswith("/bin/sh -c ")
+        assert "'" not in command and '"' not in command
 
     def test_every_variable_is_a_setting(self, service: dict[str, Any]) -> None:
         names = {var["key"] for var in service["envVars"]}
