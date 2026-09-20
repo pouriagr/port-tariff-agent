@@ -218,9 +218,16 @@ Spec: `spec/deployment.md`
       that sha as `revision` (ADR-035). `GET /` redirects to `/docs`. The job is skipped until
       the `LIVE_URL` variable exists, so it can land before the service does.
       `tests/test_deployment_config.py` asserts the blueprint and the job against the spec
-- [ ] Deploy, add the live URL to the README
+- [x] Deploy, add the live URL to the README. Live at `https://port-tariff-agent.onrender.com`;
+      `/health` reports the deployed sha as `revision`, `/` opens the API docs. The
+      Blueprint was created in the dashboard, the key set there, and `LIVE_URL` plus the hook
+      secret set with `gh`; the CI `deploy` job deploys every later push
 
 Found on the first Render build: `dockerCommand` is not parsed like a shell line. Render hands
 everything after `-c` to the shell verbatim, quote characters included, so `sh -c '...'` made
 the whole script one word and the container exited 127. The command now carries no quotes,
 and a test keeps it that way.
+
+Also found: `autoDeploy: false` gates code pushes only. The push that fixed `render.yaml` was
+synced by the Blueprint and redeployed the service at once, outside the CI gate, so an edit
+to the blueprint is itself a deploy. Recorded in `spec/deployment.md`.

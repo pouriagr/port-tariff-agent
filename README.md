@@ -4,9 +4,10 @@ An agentic RAG system that reads a port tariff PDF and, given a natural-language
 description of a vessel call, finds, interprets and computes every port due the vessel
 has to pay. Built for the Andersen Lab "Generative AI Solutions Developer" take-home test.
 
-> Status: ingestion, query, validation, the HTTP API and the container image are
-> implemented and tested against the reference case below. Deployment to a public URL is
-> the remaining step; see `docs/roadmap.md`.
+> Status: complete. Live at <https://port-tariff-agent.onrender.com>, which opens the
+> interactive API documentation. It is a free instance: the first request after 15 idle
+> minutes takes about a minute. Every push to `main` that passes CI deploys itself; see
+> [Deployment](#deployment).
 
 ## Overview
 

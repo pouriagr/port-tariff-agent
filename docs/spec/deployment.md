@@ -79,6 +79,10 @@ pipeline deploys the revert like any other commit.
 
 ## Limits
 
+`autoDeploy: false` gates pushes, not Blueprint syncs: a push that changes `render.yaml`
+is synced by Render and, when the service definition changed, redeployed at once, outside
+the CI gate. Treat an edit to the blueprint as a deploy.
+
 One instance, in memory, no authentication: the README's Limitations already hold and gain the
 sleep. Render's request timeout is not documented; `/ask` takes about a minute live and is
 checked once by hand after the first deploy. A skipped `deploy` job means `LIVE_URL` is unset,
