@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
@@ -30,3 +31,52 @@ jobs:
 
       - name: Tests
         run: uv run pytest
+
+  # Only a push to main that passed every check reaches the host, and only once the repository
+  # has been pointed at a service (docs/spec/deployment.md, ADR-034). Until the LIVE_URL
+  # variable is set the job is skipped, not red.
+  deploy:
+    needs: check
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/main'
+      && vars.LIVE_URL != ''
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: ${{ vars.LIVE_URL }}
+    env:
+      LIVE_URL: ${{ vars.LIVE_URL }}
+    steps:
+      # The hook pins the deploy to this commit, so what CI verified is what goes live.
+      - name: Deploy this exact commit
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL is not set (docs/spec/deployment.md)"
+            exit 1
+          fi
+          curl --fail --silent --show-error --request POST "${HOOK}&ref=${GITHUB_SHA}"
+          echo
+
+      # The previous instance keeps answering until the new one is live, so a 200 proves
+      # nothing; the revision does (ADR-035). Up to 20 minutes: Render builds the image first.
+      - name: Wait until the live service reports this revision
+        run: |
+          for attempt in $(seq 1 60); do
+            body="$(curl --silent --max-time 20 "${LIVE_URL}/health" || true)"
+            revision="$(printf '%s' "$body" | jq -r '.revision // empty' 2>/dev/null || true)"
+            if [ "$revision" = "$GITHUB_SHA" ]; then
+              echo "$body"
+              printf '%s' "$body" | jq -e '.status == "ok" and .configured and (.documents // 0) >= 1'
+              exit $?
+            fi
+            echo "attempt ${attempt}: live revision is '${revision:-none}', waiting"
+            sleep 20
+          done
+          echo "::error::${LIVE_URL} never reported ${GITHUB_SHA}"
+          exit 1

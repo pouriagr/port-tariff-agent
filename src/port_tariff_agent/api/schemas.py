@@ -82,6 +82,10 @@ class HealthResponse(BaseModel):
     )
     sessions: int
     jobs: int
+    revision: str | None = Field(
+        default=None,
+        description="The commit this instance runs, from APP_REVISION; null when unset",
+    )
 
 
 def _counts(counts: Counts | None) -> CountsResponse | None:

@@ -27,6 +27,7 @@ port-tariff = "port_tariff_agent.cli:app"
 [dependency-groups]
 dev = [
     "pytest>=8.2",
+    "pyyaml>=6.0.3",
     "ruff>=0.5",
 ]
 

@@ -9,6 +9,7 @@ sessions and jobs and a test cannot inherit another test's.
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from . import ask, documents, health
 from .errors import ErrorResponse, register_error_handlers
@@ -39,6 +40,12 @@ def create_app(*, sessions: SessionStore | None = None, jobs: JobStore | None = 
     app.include_router(health.router)
     app.include_router(ask.router)
     app.include_router(documents.router)
+
+    @app.get("/", include_in_schema=False)
+    def front_door() -> RedirectResponse:
+        """The URL a reviewer opens; the interactive documentation is the demo."""
+        return RedirectResponse(url="/docs")
+
     return app
 
 

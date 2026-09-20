@@ -5,19 +5,22 @@ Ingestion is asynchronous because it costs minutes of model calls; querying is s
 because it costs seconds. Nothing here is tariff-specific: the API moves a question and an
 answer, and never looks inside either.
 
-Related ADRs: 026 to 031. Sessions were specified in `spec/query.md` and are realised here.
+Related ADRs: 026 to 031, plus 034 and 035 for the deployment. Sessions were specified in
+`spec/query.md` and are realised here; hosting is in `spec/deployment.md`.
 
 ## Surface
 
 | Method | Path | Success | Errors |
 | --- | --- | --- | --- |
+| `GET` | `/` | 307 to `/docs` | none |
 | `GET` | `/health` | 200 | none |
 | `POST` | `/ask` | 200 | 404, 409, 422, 502, 503 |
 | `POST` | `/documents` | 202 | 413, 415, 422, 503 |
 | `GET` | `/documents/jobs/{job_id}` | 200 | 404 |
 | `GET` | `/documents` | 200 | 503 |
 
-OpenAPI is served at `/docs` and `/openapi.json` by FastAPI.
+OpenAPI is served at `/docs` and `/openapi.json` by FastAPI. `GET /` is the front door for a
+reviewer and is not in the schema.
 
 ## Composition
 
@@ -139,12 +142,16 @@ what tells a caller which ports and which validity periods the service can answe
 Checks only what can be checked with no key and no network call, and never calls a model:
 
 ```json
-{"status": "ok", "configured": true, "documents": 1, "sessions": 0, "jobs": 0}
+{"status": "ok", "configured": true, "documents": 1, "sessions": 0, "jobs": 0, "revision": null}
 ```
 
 `status` is `degraded` when configuration is missing or the data directory cannot be read,
 and `documents` is then null. It returns 200 in both cases: a probe that fails with 503
 hides the message that says what is wrong.
+
+`revision` is `APP_REVISION` from the environment, null when unset or unconfigured. The
+deployment sets it to the commit the instance runs, and the pipeline waits for it before
+calling a deploy done (ADR-035, `spec/deployment.md`).
 
 ## Errors
 

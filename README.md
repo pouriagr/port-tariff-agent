@@ -144,6 +144,21 @@ docker run --rm -p 8000:8000 -v port-tariff-data:/app/data --env-file .env.local
 The image runs one uvicorn worker on `$PORT` (default 8000) as a non-root user. One worker
 is deliberate: sessions live in the process and the registry has a single writer lock.
 
+## Deployment
+
+`render.yaml` defines one free Docker web service on [Render](https://render.com), built
+from this repository's Dockerfile; the spec is `docs/spec/deployment.md`. The service does
+not deploy on push by itself. The `deploy` job in `.github/workflows/ci.yml` runs after the
+checks pass on `main`, fires the service's deploy hook pinned to that exact commit, then
+polls `/health` until it reports that commit as `revision`, with the key configured and the
+reference document loaded. The previous instance keeps answering until the new one is live,
+so a plain 200 would go green too early; the revision is what ends the wait.
+
+Pointing a fork at your own service takes three settings, all outside the repository: the
+Gemini key in the Render dashboard, and on GitHub the secret `RENDER_DEPLOY_HOOK_URL` and
+the variable `LIVE_URL`. Until `LIVE_URL` is set the job is skipped. `gh workflow run CI
+--ref main` redeploys the head of `main` without a commit.
+
 ## Accuracy report
 
 Reference vessel: SUDESTADA (bulk carrier, GT 51,300) at the Port of Durban, TNPA
@@ -226,7 +241,9 @@ Ingesting a different authority's tariff book requires no code changes either; s
 shared between processes. The single uvicorn worker is load-bearing rather than a default:
 the session store is in memory and the document registry has one in-process writer lock
 (ADR-031). There is no authentication, so anyone who can reach the port can spend model
-calls. An ingestion cannot be cancelled, an upload cannot be resumed, an answer is not
+calls. The public instance is Render's free plan: it sleeps after 15 idle minutes and takes
+about a minute to wake, and it runs on a demo key whose free-tier quota is the blast radius.
+An ingestion cannot be cancelled, an upload cannot be resumed, an answer is not
 streamed, and progress is polled rather than pushed. Concurrency on `/ask` is bounded by
 the framework's threadpool, and each turn holds one thread for its duration.
 

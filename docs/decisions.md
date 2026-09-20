@@ -594,3 +594,57 @@ and the counts are precisely the fields that go stale, and parsing the caption t
 regex that can itself drift). Rendering a caption without the volatile fields (destroys the audit
 trail to protect a test). A freshness rule on the recording date (a cassette is evidence of a past
 run; its age is not a defect, and CI would go red on the calendar).
+
+## ADR-034: Render's free plan, deployed by CI through a deploy hook
+
+**Context.** Phase 6 is a bonus: a public URL a reviewer can open, chosen for no card, an easy
+signup and a short life, not for production. The image already runs one worker and has to stay
+one instance (ADR-031). Deployment has to be deterministic on a push to `main`: no dashboard
+click per release.
+
+**Decision.** Render's free plan builds the repository's Dockerfile. `render.yaml` at the root
+defines the one web service: `plan: free`, `autoDeploy: false`, the health check on `/health`,
+the three model names as values and the key as `sync: false`. The CI workflow gains a `deploy`
+job that runs after `check` on a push to `main`, and only when the repository variable
+`LIVE_URL` is set. It POSTs the service's deploy hook with `ref=$GITHUB_SHA`, then waits until
+`$LIVE_URL/health` reports that revision (ADR-035). `GET /` redirects to `/docs`, so the URL
+opens on something.
+
+**Why.** Render states that a free web service needs no card and builds Docker from a GitHub
+repository, so nothing in the pipeline builds or pushes an image. A blueprint in the repository
+makes the service definition reviewable and reproducible. Render's own auto-deploy is off because
+it fires on the push, not on the tests passing; the hook pinned to the pushed sha means what CI
+verified is what is deployed. Model names in the blueprint are environment values, the same
+standing as `.env.example`, and a test keeps the two files equal. The `LIVE_URL` gate lets the
+workflow land before the service exists without a red run.
+
+**Rejected.** Cloud Run (a billing account, a card and `gcloud`, for a bonus phase). Koyeb and
+Fly.io (card required). Hugging Face Docker Spaces (paid plans only, now). Render auto-deploy
+(not gated on the suite). Building the image in Actions and deploying by image URL (a registry and
+its credentials, for what Render does from the repository). Model names set only in the dashboard
+(the blueprint would no longer describe the service, and a reviewer could not reproduce it).
+
+## ADR-035: `/health` reports the running revision so a deploy can be verified
+
+**Context.** A deploy on Render keeps the previous instance serving until the new one passes its
+health check. A pipeline that polls `/health` for a 200 after firing the hook is answered by the
+old instance, and goes green before, or instead of, the new code being live.
+
+**Decision.** `Settings` gains `app_revision`, read from `APP_REVISION`, and `HealthResponse`
+gains `revision`, the same string or null. The `dockerCommand` in `render.yaml` exports
+`APP_REVISION="$RENDER_GIT_COMMIT"` in front of the image's own uvicorn command. The `deploy` job
+waits, up to twenty minutes, until `/health` reports `revision == $GITHUB_SHA` together with
+`status == "ok"`, `configured` and at least one document, and fails otherwise.
+
+**Why.** The revision is the one fact that tells the new instance from the old at the public URL,
+and the health body is where the service already says what it can answer, so the check is end to
+end: the URL a reviewer opens serves the commit CI tested, with the key and the document in
+place. The setting is generic and the host-specific name stays in the host's own file; another
+host would map its variable the same way. `/health` never calls a model, so the polling costs
+nothing.
+
+**Rejected.** Polling the Render API for the deploy status (needs an API key, a broader
+credential than the hook, and says the deploy finished rather than that the URL serves it). A
+Docker build argument (Render's build-argument behaviour is not documented as guaranteed, and the
+value would be baked into the image). `RENDER_GIT_COMMIT` as an alias on the setting (a host name
+in Python).

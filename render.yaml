@@ -1,0 +1,28 @@
+# Render Blueprint: the one free web service, built from this repository's Dockerfile
+# (docs/spec/deployment.md, ADR-034). autoDeploy is off on purpose: CI fires the deploy hook
+# once the suite has passed, pinned to the commit it verified. tests/test_deployment_config.py
+# asserts this file against the spec.
+services:
+  - type: web
+    name: port-tariff-agent
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: false
+    # Never calls a model, so Render's probes cost nothing.
+    healthCheckPath: /health
+    # The image's own CMD, preceded by the revision Render knows and the app reports (ADR-035).
+    # The host-specific variable name lives here, not in Python.
+    dockerCommand: sh -c 'export APP_REVISION="$RENDER_GIT_COMMIT"; exec uvicorn port_tariff_agent.api:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1 --proxy-headers'
+    envVars:
+      # Set once in the dashboard, never in the repository.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Environment values, the same standing as .env.example; a test keeps the two equal.
+      - key: GEMINI_MODEL_AGENT
+        value: gemini-3.8-flash
+      - key: GEMINI_MODEL_EXTRACT
+        value: gemini-3.8-flash
+      - key: GEMINI_MODEL_CLASSIFY
+        value: gemini-3.5-flash-lite

@@ -34,6 +34,7 @@ CLAUDE.md
 .python-version
 Dockerfile
 .dockerignore
+render.yaml
 
 # Secrets and local configuration. Values arrive through `docker run -e` / `--env-file`;
 # nothing env-shaped is ever baked in.

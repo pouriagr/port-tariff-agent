@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     gemini_thinking_level: str | None = None
     gemini_media_resolution: str | None = None
 
+    # Set by the deployment to the commit the instance runs, and reported by GET /health
+    # so the pipeline can tell the new instance from the old (ADR-035).
+    app_revision: str | None = None
+
 
 def load_settings() -> Settings:
     """Build settings, turning a validation failure into an actionable message."""

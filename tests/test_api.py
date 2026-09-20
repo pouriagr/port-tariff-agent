@@ -123,7 +123,28 @@ def test_health_reports_what_the_service_can_answer(settings: Settings, document
         "documents": 1,
         "sessions": 0,
         "jobs": 0,
+        "revision": None,
     }
+
+
+def test_health_reports_the_revision_the_deployment_set(
+    settings: Settings, document: Document
+) -> None:
+    configured = settings.model_copy(
+        update={"data_dir": document.data_dir, "app_revision": "0123abcd"}
+    )
+    api = make_client(settings=configured)
+
+    assert api.get("/health").json()["revision"] == "0123abcd"
+
+
+def test_the_root_redirects_to_the_interactive_documentation(settings: Settings) -> None:
+    api = make_client(settings=settings)
+
+    response = api.get("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"
 
 
 def test_health_says_degraded_instead_of_failing_when_unconfigured() -> None:

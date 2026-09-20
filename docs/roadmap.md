@@ -207,5 +207,15 @@ no longer hold.
 
 ## Phase 6: Deployment (bonus)
 
-- [ ] Pick a free host (Cloud Run, Render, or similar) once the code is done
+Spec: `spec/deployment.md`
+
+- [x] Pick a free host (Cloud Run, Render, or similar) once the code is done. Render's free
+      plan: no card, Docker built from the repository, a Blueprint in the repo (ADR-034).
+      Zeabur is the fallback if signup asks for a card. Cloud Run needs a billing account,
+      Koyeb and Fly.io a card, and Hugging Face Docker Spaces are paid now
+- [x] Pipeline: `render.yaml` with `autoDeploy: false`; a CI `deploy` job after `check` on
+      `main` fires the deploy hook pinned to the pushed sha and waits until `/health` reports
+      that sha as `revision` (ADR-035). `GET /` redirects to `/docs`. The job is skipped until
+      the `LIVE_URL` variable exists, so it can land before the service does.
+      `tests/test_deployment_config.py` asserts the blueprint and the job against the spec
 - [ ] Deploy, add the live URL to the README

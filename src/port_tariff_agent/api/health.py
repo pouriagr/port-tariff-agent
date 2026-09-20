@@ -34,4 +34,5 @@ def health(settings: OptionalSettingsDep, sessions: SessionsDep, jobs: JobsDep) 
         documents=documents,
         sessions=len(sessions),
         jobs=len(jobs),
+        revision=None if settings is None else settings.app_revision,
     )
