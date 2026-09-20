@@ -5,7 +5,6 @@ description = "Agentic RAG system that reads a port tariff PDF and computes the 
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Pouria" }]
 dependencies = [
     "google-genai>=1.0",
     "httpx>=0.28",
