@@ -45,6 +45,116 @@ user query --> TariffAgent (ReAct loop, chat history)
                  `- submit_answer(TariffAnswer)    validated JSON + free-text answer
 ```
 
+### Step by step
+
+Ingestion, one step at a time. Each step caches its own output:
+
+```
+  tariff.pdf
+      |
+      | sha256 -> document_hash -> data/<hash>/ (source.pdf, pages/)
+      v
+  +----------------------------------------------------------------------+
+  | 1. PageTranscriber                    [LLM: one call per page]       |
+  |    the PDF page image -> markdown, printed page marker kept          |
+  +----------------------------------------------------------------------+
+      | pages/NNN.md, concatenated in order
+      v
+  tariff.md
+      |
+      v
+  +----------------------------------------------------------------------+
+  | 2. index builder                                      [code]         |
+  |    headings -> tree of id, parent, children, page, own text          |
+  |    a node's text stops at the next heading: a child's body is        |
+  |    not part of it                                                    |
+  +----------------------------------------------------------------------+
+      v
+  tariff_index.json
+      |
+      v
+  +----------------------------------------------------------------------+
+  | 3. ChargeClassifier              [LLM: one call per section]         |
+  |    asked for every leaf, and for a container only when it says       |
+  |    something of its own                                              |
+  |    prompt = the chain of headings + that section's own text          |
+  |    answer = defines_charge, charge_name, payer, applies_when,        |
+  |             ports_mentioned                                          |
+  +----------------------------------------------------------------------+
+      |                                        |
+      v                                        v
+  classification.jsonl                   charges.json
+  every answer, positive and             the positives, four fields:
+  negative, keyed by section text        section_id, name, payer,
+  hash + prompt hash + model: the        applies_when
+  cache that keeps a re-run cheap
+      |
+      | ports_mentioned, unioned over the document's sections
+      v
+  +----------------------------------------------------------------------+
+  | 4. DocumentProfiler             [LLM: one call, front pages]         |
+  |    issuer, title, currency, validity -> profile.json                 |
+  +----------------------------------------------------------------------+
+      v
+  documents.json    one row per document: the profile, the port list,
+                    the page count, the active flag
+
+  manifest.json     the prompt version, prompt hash and model behind
+                    each step, so only a step whose inputs changed re-runs
+```
+
+A question, one step at a time:
+
+```
+  user question
+      |
+      v
+  +----------------------------------------------------------------------+
+  | TariffAgent, ReAct loop              [LLM: one call per step]        |
+  | system prompt = instructions only. No rate, charge name, section     |
+  | number or port name is in it; tariff text arrives as tool results    |
+  | and stays in the history for follow-up questions                     |
+  +----------------------------------------------------------------------+
+      | tool call                                   ^ tool result
+      v                                             |
+  +----------------------------------------------------------------------+
+  | get_charges(port, vessel_description, arrival_date)                  |
+  |   a. select_document(registry, port, date)          [code]           |
+  |      nothing covers that port on that date -> error listing          |
+  |      the ports the registry does know                                |
+  |   b. load that document's index and charges         [code]           |
+  |   c. ChargeSelector                      [LLM: one call]             |
+  |      context = the port, the vessel description, every charge        |
+  |                in charges.json as one line, and the index's          |
+  |                other numbered sections that carry text of            |
+  |                their own as id, title and a 240-character            |
+  |                preview. No full section text yet                     |
+  |      answer  = applicable and context section ids, each with         |
+  |                a reason                                              |
+  |   d. text per selected id: the ancestors' own text, then the         |
+  |      section with its children                      [code]           |
+  | -> document summary, applicable, context, not_applicable             |
+  +----------------------------------------------------------------------+
+      |
+      v
+  +----------------------------------------------------------------------+
+  | calculate(expression)                                 [code]         |
+  | the model writes the formula, the evaluator returns the number;      |
+  | the model never does arithmetic itself                               |
+  +----------------------------------------------------------------------+
+      |
+      v
+  +----------------------------------------------------------------------+
+  | submit_answer(TariffAnswer)                           [code]         |
+  | charges, each with section id, page citation, formula and            |
+  | amount; total; assumptions; missing_inputs; notes                    |
+  +----------------------------------------------------------------------+
+```
+
+The port picks the document, not the charges. Every charge the document defines goes
+into the selection prompt; deciding which of them a call at that port owes is the
+model reading the text, never a filter in code.
+
 Details: `docs/spec/ingestion.md`, `docs/spec/query.md`. Design rationale:
 `docs/decisions.md`.
 
